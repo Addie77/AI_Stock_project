@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 股價預測儀表板</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <nav class="sidebar">
+            <div class="logo">StockAI</div>
+            <ul class="nav-links">
+                <li class="active">市場總覽</li>
+                <li>我的自選</li>
+                <li>AI 報告</li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header>
+                <input type="text" placeholder="搜尋股票代碼..." id="stockSearch">
+                <div class="user-profile">終端機狀態：<span class="status-online">連線中</span></div>
+            </header>
+
+            <div class="dashboard-grid">
+                <section class="chart-card">
+                    <h3>TSMC (2330) 趨勢與 AI 預測</h3>
+                    <canvas id="stockChart"></canvas>
+                </section>
+
+                <section class="news-card">
+                    <h3>AI 新聞總結</h3>
+                    <div class="news-item">
+                        <span class="tag positive">利多</span>
+                        <h4>營收創歷史新高</h4>
+                        <p>AI 摘要：受惠於 3nm 製程強勁需求，預期本季毛利率將進一步提升...</p>
+                    </div>
+                    <div class="news-item">
+                        <span class="tag neutral">中立</span>
+                        <h4>全球配息政策更新</h4>
+                        <p>AI 摘要：公司宣布調整現金股利發放頻率，對長期投資者穩定性增加...</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
