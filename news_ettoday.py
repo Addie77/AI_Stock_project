@@ -38,6 +38,17 @@ def scrap_ettoday(limit=5):
                     target.download()
                     target.parse()
 
+                    artitle_soup = BeautifulSoup(target.html,'html.parser')
+                    time_tag = artitle_soup.find('time', class_='date')
+
+                    if time_tag:
+                        raw_time_text = time_tag.text.strip()
+                        publish_time = raw_time_text.replace('年','/').replace('月','/').replace('日','')
+                    elif target.publish_date:
+                        publish_time = target.publish_date.strftime('%Y/%m/%d %H:%M')
+                    else:
+                        publish_time = "未知"
+
                     raw_title = target.title.strip()
                     clean_title = "".join(raw_title.split())
                     
@@ -51,7 +62,7 @@ def scrap_ettoday(limit=5):
                     news_dict = {
                         "title": raw_title,
                         "source": "ETtoday 財經雲",
-                        "time": target.publish_date.strftime('%Y/%m/%d %H:%M') if target.publish_date else "未知",
+                        "time": publish_time,
                         "full_text": content,
                         "link": url
                     }

@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from newspaper import Article, Config
 import time
 import random
+from datetime import datetime, timedelta
 
 def scrap_yahoo(limit=5):
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36'}
@@ -37,6 +38,21 @@ def scrap_yahoo(limit=5):
                     target.download() #下載網頁
                     target.parse() #解析出標題內文日期
 
+                    publish_time = "未知"
+
+                    if target.publish_date:
+                        publish_time = target.publish_date.strftime('%Y/%m/%d  %H:%M0')
+                    else: #抓不到時間時 改用BeautifulSoup在HTML找<time>標籤
+                        article_soup = BeautifulSoup(target.html,'html.parser')
+                        time_tag = article_soup.find('time')
+                        if time_tag: #轉時區
+                            raw_dt = time_tag['datetime'] # 取得 2026-04-05T02:00:00Z
+                            dt = datetime.strptime(raw_dt[:19], '%Y-%m-%dT%H:%M:%S')
+                            dt_tw = dt + timedelta(hours=8)
+                            publish_time = dt_tw.strftime('%Y/%m/%d %H:%M')
+                        else:
+                            publish_time = time_tag.text.strip()
+
                     raw_title = target.title.strip() #取得標題並去除前後空白
                     junk_keywords = ["Yahoo股市", "Yahoo奇摩", "專輯", "信箱"] #定義垃圾字詞
                     if any(junk in raw_title for junk in junk_keywords) and len(raw_title) < 15:
@@ -52,7 +68,7 @@ def scrap_yahoo(limit=5):
                     news_dict = {
                         "title": raw_title,
                         "source": "Yahoo 財經新聞",
-                        "time": target.publish_date.strftime('%Y/%m/%d  %H:%M0') if target.publish_date else "未知",
+                        "time": publish_time,
                         "full_text" : content,
                         "link" : url
                     }
