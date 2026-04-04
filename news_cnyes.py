@@ -5,9 +5,10 @@ from webdriver_manager.chrome import ChromeDriverManager
 from bs4 import BeautifulSoup
 from newspaper import Article, Config
 import time
+from datetime import datetime, timedelta
 
 def scrap_cnyes(limit=5):
-    # 設定 Chrome 參數：不顯示視窗 (Headless 模式)
+    # 設定 Chrome 參數 不顯示視窗 (Headless 模式)
     chrome_options = Options()
     chrome_options.add_argument("--headless") 
     chrome_options.add_argument("--disable-gpu")
@@ -18,7 +19,7 @@ def scrap_cnyes(limit=5):
     driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
     
     target_url = 'https://news.cnyes.com/news/cat/tw_stock'
-    print(f"--- 啟動瀏覽器模擬抓取 (鉅亨網) ---")
+    print(f"--- 開始 ---")
 
     try:
         driver.get(target_url)
@@ -56,28 +57,42 @@ def scrap_cnyes(limit=5):
                     target.download()
                     target.parse()
 
-                    # 放寬內文限制：有些台股短評字數不多，調降至 50 字避免跳過
+                    # 放寬內文限制
                     if len(target.text.strip()) < 50: 
                         continue
 
-                    # 建立結果字典
+                    publish_time = "未知"
+
+                    if target.publish_date:
+                        publish_time = (target.publish_date + timedelta(hours=8)).strftime('%Y/%m/%d %H:%M')
+                    else:
+                        article_soup = BeautifulSoup(target.html, 'html.parser')
+                        time_tag = article_soup.find('time')
+                        if time_tag and time_tag.has_attr('datetime'):
+                            raw_dt_str = time_tag['datetime'] # 格式如: 2026-04-05T02:00:00+08:00
+                            # 鉅亨網有些格式會寫 +08:00，但為了保險我們統一處理前 19 位
+                            dt_obj = datetime.strptime(raw_dt_str[:19], '%Y-%m-%dT%H:%M:%S')
+                            # 如果字串結尾是 Z 或確認是 UTC，就加 8
+                            if 'Z' in raw_dt_str.upper() or '+00:00' in raw_dt_str:
+                                dt_obj = dt_obj + timedelta(hours=8)
+                            publish_time = dt_obj.strftime('%Y/%m/%d %H:%M')
+
                     news_entry = {
                         "title": target.title.strip(),
                         "source": "鉅亨網",
-                        "link": url,
+                        "time": publish_time,
                         "full_text": target.text.strip(),
-                        "time": target.publish_date.strftime('%Y/%m/%d %H:%M') if target.publish_date else "未知"
+                        "link": url
                     }
 
                     results.append(news_entry)
-                    processed_urls.add(url) # 成功存入結果後，才標記為已處理
+                    processed_urls.add(url)
                     print(f"成功抓取: {news_entry['title'][:15]}...")
 
                     if len(results) >= limit: 
                         break
                         
                 except Exception as e:
-                    # 如果這一次嘗試失敗，不加入 processed_urls，讓迴圈有機會在下一個相同的連結重試
                     continue
 
         # --- 顯示結果 ---
@@ -88,7 +103,6 @@ def scrap_cnyes(limit=5):
             print(f"    [ 時間 ]: {news['time']}")
             print(f"    [ 網址 ]: {news['link']}")
             
-            # 預覽內文前 50 字
             preview = news['full_text'][:50].replace('\n', ' ')
             print(f"    [ 內文 ]: {preview}...")
             print("-" * 60)

@@ -62,6 +62,10 @@ def scrap_yahoo(limit=5):
                         continue #標題太短或重複就跳過
 
                     content = target.text.strip() #取得新聞內容
+
+                    garbage_text = "將 Yahoo 設為首選來源，在 Google 上查看更多我們的精彩報導"
+                    content = content.replace(garbage_text, "").strip() # 將該字串替換成空字串，並再次去除前後空白
+
                     if "，" not in content:
                         continue #若內文沒有逗號 代表內容很零碎或沒抓到內容 跳過
 

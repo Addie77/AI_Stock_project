@@ -3,6 +3,31 @@ import random
 from news_cnyes import scrap_cnyes
 from news_ettoday import scrap_ettoday
 from news_yahoo import scrap_yahoo
+import json
+from opencc import OpenCC
+
+def simp_and_save(data_list):
+    if not data_list:
+        print("沒有資料可以轉換儲存")
+        return
+    print("\n 繁體轉簡體")
+
+    cc = OpenCC('t2s')
+
+    for item in data_list:
+        item['title'] = cc.convert(item['title'])
+        item['full_text'] = cc.convert(item['full_text'])
+
+    print("\n 儲存JSON檔")
+
+    # 執行儲存
+    file_name = f"news_data.json"
+    try:
+        with open(file_name, 'w', encoding='utf-8') as f:
+            json.dump(data_list, f, ensure_ascii=False, indent=4)
+        print(f"--- 成功儲存至: {file_name} ---")
+    except Exception as e:
+        print(f"儲存 JSON 失敗: {e}")
 
 def news():
     all_news_results = []
@@ -51,4 +76,5 @@ def news():
     return all_news_results
 
 if __name__ == "__main__":
-    news()
+    data = news()
+    simp_and_save(data)
