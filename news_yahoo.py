@@ -69,8 +69,18 @@ def scrap_yahoo(symbol, daily_limit=30):
         soup = BeautifulSoup(driver.page_source, 'html.parser')
         
         # [確認] 印出到底抓到幾個 h3，藉此驗證滾動是否成功
-        containers = soup.find_all('h3', class_='Mb(5px)')
-        print(f"DEBUG: 目前網頁中共有 {len(containers)} 個新聞標題")
+        # containers = soup.find_all('h3', class_='Mb(5px)')
+
+        # [修改] 放棄綁定特定的 CSS Class，改抓大範圍
+        # 為了避免抓到側邊欄，優先鎖定搜尋結果容器 (如果 id 沒變的話)
+        a_tags = soup.select('#mfi-search-stream li h3 a[href]')        # [修改] 直接抓取容器內所有的 <h3> 標籤
+        if not a_tags:
+            a_tags = soup.select('h3 a[href]')
+            print("⚠️ 警告：找不到主要的搜尋結果區塊，改為全域抓取")
+        
+        print(f"\n====================================")
+        print(f"🟢 DEBUG: 利用 Selector 成功抓到 {len(a_tags)} 個新聞連結")
+        print(f"====================================\n")
         
         driver.quit() # 拿到資料後關閉瀏覽器
         
@@ -78,12 +88,11 @@ def scrap_yahoo(symbol, daily_limit=30):
         seen_titles = set() 
         processed_urls = set() 
 
-        for a in containers:
-            tag = a.find('a', href=True)
-            if not tag:
+        for tag in a_tags:
+            url = tag['href']
+            if not url:
                 continue
-                
-            url = tag['href'] 
+                 
             
             if 'search' not in url and url not in processed_urls:
                 if url.startswith('/'):
