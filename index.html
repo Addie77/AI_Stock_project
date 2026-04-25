@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 股價預測儀表板</title>
+    <title>StockAI - 智能股價儀表板</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -21,26 +21,51 @@
         <main class="main-content">
             <header>
                 <input type="text" placeholder="搜尋股票代碼..." id="stockSearch">
-                <div class="user-profile">終端機狀態：<span class="status-online">連線中</span></div>
+                <div class="status">系統狀態：<span class="online">連線中</span></div>
             </header>
+
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>市場情感分數</h3>
+                    <div class="sentiment-bar">
+                        <div class="sentiment-fill" id="sentFill"></div>
+                    </div>
+                    <span id="sentVal" class="stat-number">0 / 100</span>
+                    <p class="stat-desc">基於新聞與社群媒體分析</p>
+                </div>
+
+                <div class="stat-card">
+                    <h3>明日上漲機率</h3>
+                    <div class="chart-container">
+                        <svg viewBox="0 0 36 36" class="circular-chart">
+                            <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <path id="probCircle" class="circle" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                            <text x="18" y="20.35" class="percentage" id="probText">0%</text>
+                        </svg>
+                    </div>
+                    <p class="stat-desc">AI 模型多維度演算預測</p>
+                </div>
+            </div>
 
             <div class="dashboard-grid">
                 <section class="chart-card">
-                    <h3>TSMC (2330) 趨勢與 AI 預測</h3>
-                    <canvas id="stockChart"></canvas>
+                    <h3>TSMC (2330) 價格趨勢與 AI 預測</h3>
+                    <div class="canvas-wrapper">
+                        <canvas id="stockChart"></canvas>
+                    </div>
                 </section>
 
                 <section class="news-card">
-                    <h3>AI 新聞總結</h3>
+                    <h3>AI 新聞短評</h3>
                     <div class="news-item">
                         <span class="tag positive">利多</span>
-                        <h4>營收創歷史新高</h4>
-                        <p>AI 摘要：受惠於 3nm 製程強勁需求，預期本季毛利率將進一步提升...</p>
+                        <h4>產能利用率持續回升</h4>
+                        <p>受惠於 AI 晶片需求，先進製程訂單滿載...</p>
                     </div>
                     <div class="news-item">
                         <span class="tag neutral">中立</span>
-                        <h4>全球配息政策更新</h4>
-                        <p>AI 摘要：公司宣布調整現金股利發放頻率，對長期投資者穩定性增加...</p>
+                        <h4>匯率波動影響盈餘</h4>
+                        <p>美元近期走勢可能對毛利造成短期波動...</p>
                     </div>
                 </section>
             </div>
