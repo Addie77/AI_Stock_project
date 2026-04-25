@@ -1,57 +1,60 @@
 :root {
     --bg-dark: #0f172a;
     --card-bg: #1e293b;
+    --side-bg: #020617;
     --text-main: #f8fafc;
     --accent-blue: #38bdf8;
-    --predict-color: #fbbf24;
+    --predict-yellow: #fbbf24;
 }
 
 body {
     margin: 0;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Inter', 'Segoe UI', sans-serif;
     background-color: var(--bg-dark);
     color: var(--text-main);
 }
 
 .container { display: flex; min-height: 100vh; }
 
-.sidebar {
-    width: 200px;
-    background: #020617;
-    padding: 20px;
-}
+/* 側邊欄 */
+.sidebar { width: 220px; background: var(--side-bg); padding: 25px; border-right: 1px solid #1e293b; }
+.logo { font-size: 24px; font-weight: 800; color: var(--accent-blue); margin-bottom: 40px; letter-spacing: 1px; }
+.nav-links { list-style: none; padding: 0; }
+.nav-links li { padding: 12px 15px; cursor: pointer; border-radius: 10px; margin-bottom: 8px; transition: 0.3s; color: #94a3b8; }
+.nav-links li.active { background: #1e293b; color: var(--accent-blue); font-weight: bold; }
 
-.main-content {
-    flex: 1;
-    padding: 30px;
-}
+/* 主要區域 */
+.main-content { flex: 1; padding: 30px; overflow-y: auto; }
+header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
+#stockSearch { background: var(--card-bg); border: 1px solid #334155; padding: 10px 20px; border-radius: 12px; color: white; width: 300px; }
+.online { color: #34d399; font-weight: bold; }
 
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr;
-    gap: 20px;
-    margin-top: 20px;
-}
+/* 指標卡 */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
+.stat-card { background: var(--card-bg); padding: 20px; border-radius: 16px; text-align: center; border: 1px solid #334155; }
+.stat-number { font-size: 24px; font-weight: bold; margin-top: 10px; display: block; }
+.stat-desc { font-size: 12px; color: #64748b; margin-top: 8px; }
 
-.chart-card, .news-card {
-    background: var(--card-bg);
-    padding: 20px;
-    border-radius: 16px;
-    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-}
+/* 情感條 */
+.sentiment-bar { background: #334155; height: 10px; border-radius: 5px; overflow: hidden; margin: 15px auto; width: 80%; }
+.sentiment-fill { background: linear-gradient(90deg, #f87171, #fbbf24, #34d399); height: 100%; width: 0%; transition: width 1.5s cubic-bezier(0.1, 0, 0.2, 1); }
 
-.news-item {
-    border-bottom: 1px solid #334155;
-    padding: 15px 0;
-}
+/* 圓環機率 */
+.circular-chart { max-width: 70px; margin: 0 auto; }
+.circle-bg { fill: none; stroke: #334155; stroke-width: 3; }
+.circle { fill: none; stroke-width: 3; stroke-linecap: round; stroke: var(--accent-blue); transition: stroke-dasharray 1.5s ease; }
+.percentage { fill: #fff; font-size: 0.5em; text-anchor: middle; font-weight: bold; }
 
-.tag {
-    font-size: 12px;
-    padding: 2px 8px;
-    border-radius: 4px;
-}
+/* 儀表板佈局與圖表大小控制 */
+.dashboard-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
+.chart-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid #334155; display: flex; flex-direction: column; }
+.canvas-wrapper { position: relative; height: 300px; width: 100%; margin-top: 15px; }
 
+/* 新聞樣式 */
+.news-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid #334155; }
+.news-item { padding: 15px 0; border-bottom: 1px solid #334155; }
+.tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
 .positive { background: #065f46; color: #34d399; }
-.neutral { background: #374151; color: #9ca3af; }
-
-canvas { width: 100% !important; height: 350px !important; }
+.neutral { background: #334155; color: #94a3b8; }
+h4 { margin: 8px 0; font-size: 16px; }
+p { font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5; }
