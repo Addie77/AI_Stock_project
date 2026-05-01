@@ -1,0 +1,11 @@
+### 測試發送新聞資料到進貨碼頭 (POST 請求)
+POST http://localhost:8080/api/ingest/news
+Content-Type: application/json
+
+{
+  "stockId": "2330",
+  "title": "台積電營收大突破，AI 晶片需求強勁",
+  "contentUrl": "https://example.com/news/123",
+  "sentimentScore": 85,
+  "aiSummary": "受惠於 AI 晶片需求，台積電本季營收表現亮眼，市場普遍看好後市發展。"
+}

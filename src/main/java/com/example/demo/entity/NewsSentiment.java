@@ -1,11 +1,11 @@
-package com.example.entity;
+package com.example.demo.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "news_sentiment")
-public class NewSentiment {
+public class NewsSentiment {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
