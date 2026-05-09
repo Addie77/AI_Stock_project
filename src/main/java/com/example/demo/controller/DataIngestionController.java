@@ -4,7 +4,6 @@ import com.example.demo.entity.NewsSentiment;
 import com.example.demo.entity.Stock;
 import com.example.demo.repository.NewsSentimentRepository;
 import com.example.demo.repository.StockRepository;
-import com.sun.jdi.event.StepEvent;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
