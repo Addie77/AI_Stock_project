@@ -34,3 +34,18 @@ build/
 
 # Ignore real database credentials
 src/main/resources/application.properties
+
+# Python 相關
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虛擬環境
+.venv/
+venv/
+env/
+
+# 機器學習模型
+sentiment_model/models/
+*.h5
+*.pkl
