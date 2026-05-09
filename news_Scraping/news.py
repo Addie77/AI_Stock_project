@@ -17,7 +17,7 @@ def simp_and_save(data_list):
 
     for item in data_list:
         item['title'] = cc.convert(item['title'])
-        item['full_text'] = cc.convert(item['full_text'])
+        item['text'] = cc.convert(item['text'])
 
     print("\n 儲存JSON檔")
 
@@ -70,10 +70,11 @@ def news():
     else:
         for i, news in enumerate(all_news_results, 1):
             print(f"({i}) [標題]: {news['title']}")
-            print(f"    [來源]: {news['source']}")
+            print(f"({i}) [ 連結 ]: {news['link']}")
+            #print(f"    [來源]: {news['source']}")
             print(f"    [時間]: {news['time']}")
-            preview = news['full_text'][:100].replace('\n', ' ')
-            print(f"    [內容]: {preview}...")
+            #preview = news['full_text'][:100].replace('\n', ' ')
+            print(f"    [內容]: {news['text']}")
             print("-" * 60)
     return all_news_results
 

@@ -255,6 +255,7 @@ def scrap_yahoo(symbol, daily_limit=30):
         
         for i, news in enumerate(results, 1): 
             print(f"({i}) [ 標題 ]: {news['title']}")
+            print(f"({i}) [ 連結 ]: {news['link']}")
             # print(f"    [ 來源 ]: {news['source']}")
             print(f"    [ 時間 ]: {news['time']}")
 
