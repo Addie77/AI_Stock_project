@@ -17,7 +17,7 @@ public class NewsSentiment {
     @JoinColumn(name = "stock_id", nullable = false)
     private Stock stock;
 
-    @Column(name = "piblish_data", nullable = false)
+    @Column(name = "publish_date", nullable = false)
     private LocalDateTime publishDate;
 
     @Column(name = "title", nullable = false)

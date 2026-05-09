@@ -7,7 +7,7 @@ import java.util.List;
 
 @Repository
 public interface DailyQuoteRepository extends JpaRepository<DailyQuote, Long> {
-    // 💡 魔法語法解析：
+    // 語法解析：
     // findBy      -> 告訴系統我要執行 SELECT
     // Stock_StockId -> 透過外鍵 Stock 找到裡面的 StockId
     // OrderBy     -> 告訴系統我要排序 (ORDER BY)

@@ -9,7 +9,7 @@ import java.util.List;
 @Repository
 public interface NewsSentimentRepository extends JpaRepository<NewsSentiment, Long> {
 
-    // 💡 魔法語法解析：
+    // 語法解析：
     // findBy         -> 執行 SELECT
     // Stock_StockId    -> 條件一：股票代號
     // And            -> 加上 AND 邏輯

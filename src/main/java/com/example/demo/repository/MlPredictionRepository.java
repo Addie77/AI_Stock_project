@@ -8,7 +8,7 @@ import java.util.Optional;
 @Repository
 public interface MlPredictionRepository extends JpaRepository<MlPrediction, Long> {
 
-    // 💡 魔法語法解析：
+    // 語法解析：
     // findFirstBy -> 只抓第一筆 (LIMIT 1)
     // 條件：股票代號，並依照預測目標日期排序，抓最新的
     Optional<MlPrediction> findFirstByStock_StockIdOrderByTargetDateDesc(String stockId);
