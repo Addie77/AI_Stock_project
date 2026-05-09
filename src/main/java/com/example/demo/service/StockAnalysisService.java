@@ -48,7 +48,7 @@ public class StockAnalysisService {
             reportBox.put("error", "找不到代號為 " + stockId + " 的股票");
             return reportBox;
         }
-        reportBox.put("stoclInfo", stockOpt.get());
+        reportBox.put("stockInfo", stockOpt.get());
 
         // 2. 拿遙控器 2 號：查詢歷史股價 (畫 K 線圖用)
         List<DailyQuote> quotes = quoteRepo.findByStock_StockIdOrderByTradeDateDesc(stockId);
@@ -57,6 +57,7 @@ public class StockAnalysisService {
         // 3. 拿遙控器 3 號：查詢近 3 天的新聞與 AI 總評
         LocalDateTime threeDaysAgo = LocalDateTime.now().minusDays(3);
         List<NewsSentiment> recentNews = newsRepo.findByStock_StockIdAndPublishDateAfterOrderByPublishDateDesc(stockId, threeDaysAgo);
+        reportBox.put("recentNews", recentNews);
 
         // 4. 拿遙控器 4 號：查詢最新的 AI 預測機率
         Optional<MlPrediction> latestPrediction = mlRepo.findFirstByStock_StockIdOrderByTargetDateDesc(stockId);
