@@ -3,6 +3,7 @@ import random
 from news_cnyes import scrap_cnyes
 from news_ettoday import scrap_ettoday
 from news_yahoo import scrap_yahoo
+from api_sender import send_news_to_springboot
 import json
 from opencc import OpenCC
 
@@ -34,10 +35,11 @@ def news():
     all_news_results = []
     # limit_per_source = 5
 
+    stock = ""
+    
     print("=== 開始 ===")
-
     print("\n 抓取 yahoo 財經新聞...")
-
+    
     try:
         stock = input("請輸入搜尋代碼: ")
         yahoo_news = scrap_yahoo(symbol=stock, daily_limit=30)
@@ -76,8 +78,13 @@ def news():
             #preview = news['full_text'][:100].replace('\n', ' ')
             print(f"    [內容]: {news['text']}")
             print("-" * 60)
-    return all_news_results
+    return stock, all_news_results
 
 if __name__ == "__main__":
-    data = news()
+    stock_id, data = news()
+    # 3把資料交給我們的發送小幫手，打進 Spring Boot！
+    send_news_to_springboot(stock_id, data)
+    #存一份 JSON 在本機
     simp_and_save(data)
+    
+    
