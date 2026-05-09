@@ -233,7 +233,6 @@ def scrap_yahoo(symbol, daily_limit=30):
 
                     news_dict = {
                         "title": raw_title,
-                        "source": "Yahoo 新聞",
                         "time": publish_time,
                         "text" : news_summary,
                         "link" : url
@@ -256,7 +255,7 @@ def scrap_yahoo(symbol, daily_limit=30):
         
         for i, news in enumerate(results, 1): 
             print(f"({i}) [ 標題 ]: {news['title']}")
-            print(f"    [ 來源 ]: {news['source']}")
+            # print(f"    [ 來源 ]: {news['source']}")
             print(f"    [ 時間 ]: {news['time']}")
 
             #preview = news['full_text'][:50].replace('\n',' ') 
