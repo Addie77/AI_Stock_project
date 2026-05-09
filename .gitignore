@@ -51,3 +51,6 @@ sentiment_model/models/
 *.pkl
 
 gemini.md
+
+#金鑰
+.env

@@ -21,6 +21,9 @@
         <main class="main-content">
             <header>
                 <input type="text" placeholder="搜尋股票代碼..." id="stockSearch">
+                
+                <div id="displayName" style="font-size: 20px; font-weight: bold; color: var(--accent-blue); margin-left: 20px;">載入中...</div>
+                
                 <div class="status">系統狀態：<span class="online">連線中</span></div>
             </header>
 
@@ -31,12 +34,12 @@
                         <div class="sentiment-fill" id="sentFill"></div>
                     </div>
                     <span id="sentVal" class="stat-number">0 / 100</span>
-                    <p class="stat-desc">基於新聞與社群媒體分析</p>
+                    <p class="stat-desc">基於新聞與 AI 語意分析</p>
                 </div>
 
                 <div class="stat-card">
                     <h3>明日上漲機率</h3>
-                    <div class="chart-container">
+                    <div class="circular-chart">
                         <svg viewBox="0 0 36 36" class="circular-chart">
                             <path class="circle-bg" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
                             <path id="probCircle" class="circle" stroke-dasharray="0, 100" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
@@ -49,23 +52,18 @@
 
             <div class="dashboard-grid">
                 <section class="chart-card">
-                    <h3>TSMC (2330) 價格趨勢與 AI 預測</h3>
+                    <h3 id="chartTitle">價格趨勢與 AI 預測</h3>
                     <div class="canvas-wrapper">
                         <canvas id="stockChart"></canvas>
                     </div>
                 </section>
 
                 <section class="news-card">
-                    <h3>AI 新聞短評</h3>
+                    <h3>AI 智能建議</h3>
                     <div class="news-item">
-                        <span class="tag positive">利多</span>
-                        <h4>產能利用率持續回升</h4>
-                        <p>受惠於 AI 晶片需求，先進製程訂單滿載...</p>
-                    </div>
-                    <div class="news-item">
-                        <span class="tag neutral">中立</span>
-                        <h4>匯率波動影響盈餘</h4>
-                        <p>美元近期走勢可能對毛利造成短期波動...</p>
+                        <p id="aiSummary" style="font-size: 1.1em; line-height: 1.6;">等待 AI 分析數據中...</p>
+                        <hr style="border: 0.5px solid #334155; margin: 15px 0;">
+                        <p id="aiAdvice" style="color: var(--accent-blue); font-weight: 500;"></p>
                     </div>
                 </section>
             </div>
