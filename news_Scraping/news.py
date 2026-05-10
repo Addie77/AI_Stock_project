@@ -1,3 +1,5 @@
+import sys
+import os
 import time
 import random
 from news_cnyes import scrap_cnyes
@@ -7,8 +9,15 @@ from api_sender import send_news_to_springboot
 import json
 from opencc import OpenCC
 
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.abspath(os.path.join(current_dir,".."))
+if parent_dir not in sys.path:
+    sys.path.append(parent_dir)
 
-def simp_and_save(data_list):
+from sentiment_model.sentiment_analyzer import SentimentAnalyzer
+
+
+def process_and_save(data_list):
     if not data_list:
         print("沒有資料可以儲存")
         return
@@ -16,14 +25,24 @@ def simp_and_save(data_list):
 
     cc = OpenCC('t2s')
 
-    for item in data_list:
+    print("正在載入 AI 情緒分析引擎 (這可能需要幾秒鐘)...")
+    analyzer = SentimentAnalyzer()
+
+    print("開始進行【繁簡轉換】與【情緒評分】...")
+    for i,item in enumerate(data_list):
         item['title'] = cc.convert(item['title'])
         item['text'] = cc.convert(item['text'])
 
-    print("\n 儲存JSON檔")
+        scores = analyzer.analyze_text(item['text'])
 
-    # 執行儲存
-    file_name = f"news_data.json"
+        item.update(scores)
+
+        if (i + 1) % 5 == 0:
+            print(f"已完成處理 {i + 1}/{len(data_list)} 筆新聞...")
+
+    print("\n 準備儲存 JSON 檔...")
+    file_name = "news_data.json"
+
     try:
         with open(file_name, 'w', encoding='utf-8') as f:
             json.dump(data_list, f, ensure_ascii=False, indent=4)
@@ -38,7 +57,7 @@ def news():
     stock = ""
     
     print("=== 開始 ===")
-    print("\n 抓取 yahoo 財經新聞...")
+    print("\n 抓取新聞...")
     
     try:
         stock = input("請輸入搜尋代碼: ")
@@ -76,15 +95,15 @@ def news():
             #print(f"    [來源]: {news['source']}")
             print(f"    [時間]: {news['time']}")
             #preview = news['full_text'][:100].replace('\n', ' ')
-            print(f"    [內容]: {news['text']}")
+            print(f"    [摘要]: {news['text']}")
             print("-" * 60)
     return stock, all_news_results
 
 if __name__ == "__main__":
     stock_id, data = news()
     # 3把資料交給我們的發送小幫手，打進 Spring Boot！
-    send_news_to_springboot(stock_id, data)
+    # send_news_to_springboot(stock_id, data)
     #存一份 JSON 在本機
-    simp_and_save(data)
+    process_and_save(data)
     
     
