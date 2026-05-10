@@ -27,11 +27,18 @@ public class DataIngestionController {
 
         // 1. 從 Python 傳來的 JSON 中取出股票代號
         String stockId = (String) payload.get("stockId");
+        String contentUrl = (String) payload.get("contentUrl");
 
-        // 2. 檢查資料庫有沒有這檔股票 (因為外鍵關聯，必須先找出 Stock 實體)
+        // 🌟 自動註冊機制：檢查資料庫有沒有這檔股票
         Stock stock = stockRepo.findById(stockId).orElse(null);
         if(stock == null){
-            return "寫入失敗：資料庫找不到股票代號 " + stockId;
+            // 如果沒有，就自動幫它建檔！
+            stock = new Stock();
+            stock.setStockId(stockId);
+            stock.setStockName("自動新增股票");   // 先給預設名稱
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);  // 存進 stock 表
+            System.out.println("⚠️ 偵測到新股票，已自動註冊代號：" + stockId);
         }
 
         // 3. 建立新聞實體，把 Python 傳來的資料塞進去
@@ -42,7 +49,7 @@ public class DataIngestionController {
         news.setTitle((String) payload.get("title"));
         news.setContentUrl((String) payload.get("contentUrl"));
         news.setSentimentScore((Integer) payload.get("sentimentScore"));
-        news.setAiSummary((String) payload.get("aiSummary"));
+        news.setContentSummary((String) payload.get("contentSummary"));
 
         // 4. 遙控器按下 Save，存入 MySQL！
         newsRepo.save(news);

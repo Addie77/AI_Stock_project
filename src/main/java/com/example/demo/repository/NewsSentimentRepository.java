@@ -16,4 +16,7 @@ public interface NewsSentimentRepository extends JpaRepository<NewsSentiment, Lo
     // PublishDateAfter -> 條件二：發布時間「晚於」某個時間點 (用來抓近3天)
     // OrderByPublishDateDesc -> 照新聞時間新到舊排序
     List<NewsSentiment> findByStock_StockIdAndPublishDateAfterOrderByPublishDateDesc(String stockId, LocalDateTime date);
+
+    // 🌟透過網址檢查新聞是否存在 (回傳 true 或 false)
+    boolean existsByContentUrl(String contentUrl);
 }
