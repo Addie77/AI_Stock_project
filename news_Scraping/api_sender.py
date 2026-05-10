@@ -33,7 +33,7 @@ def send_news_to_springboot(stock_id, news_list):
             "publishDate": java_date,
             # --- 尚未完成的 AI 部分 (填入假資料) ---
             "sentimentScore": 50,
-            "aiSummary": "[等待分析] 此新聞的 AI 總評與情緒分析尚未執行。"
+            "contentSummary": f"[測試摘要] 這是關於『{title[:10]}...』的新聞重點擷取。"
         }
         
         # 3. 發射 POST 請求
