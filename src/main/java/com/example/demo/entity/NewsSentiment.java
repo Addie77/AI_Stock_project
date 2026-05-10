@@ -30,8 +30,8 @@ public class NewsSentiment {
     private Integer sentimentScore;
 
     // 關鍵字：明確指定資料庫要對應 TEXT 型態，能塞超長文章
-    @Column(name = "ai_summary", columnDefinition = "TEXT")
-    private String aiSummary;
+    @Column(name = "content_summary", columnDefinition = "TEXT")
+    private String contentSummary;
 
     public Long getNewsId() { return newsId; }
     public void setNewsId(Long newsId) { this.newsId = newsId; }
@@ -45,6 +45,6 @@ public class NewsSentiment {
     public void setContentUrl(String contentUrl) { this.contentUrl = contentUrl; }
     public Integer getSentimentScore() { return sentimentScore; }
     public void setSentimentScore(Integer sentimentScore) { this.sentimentScore = sentimentScore; }
-    public String getAiSummary() { return aiSummary; }
-    public void setAiSummary(String aiSummary) { this.aiSummary = aiSummary; }
+    public String getContentSummary() { return contentSummary; }
+    public void setContentSummary(String contentSummary) { this.contentSummary = contentSummary; }
 }
