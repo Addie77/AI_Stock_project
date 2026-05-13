@@ -25,6 +25,41 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
+ /**
+ * 實作：從 Spring Boot Java 後端抓取資料庫數據
+*/
+ async function fetchFromDatabase(code) {
+      // Java 後端的伺服器位址 (預設為 8080)
+    const JAVA_API_URL = `http://localhost:8080/api/stocks/${code}`;
+ 
+    console.log(`📡 正在從資料庫請求股票代碼: ${code}...`);
+
+    try {
+         const response = await fetch(JAVA_API_URL);
+
+        if (!response.ok) {
+             // 如果後端回傳 404 (找不到股票) 或 500
+             const errorData = await response.json();
+             throw new Error(errorData.error || `HTTP 錯誤: ${response.status}`);
+        }
+
+         const dbData = await response.json();
+
+         // 先用 console.log 驗證接收到的資料結構
+         console.log("✅ 成功接收資料庫數據:", dbData);
+
+         // 您可以在這裡處理資料邏輯，例如：
+         // console.log("股票名稱:", dbData.stockInfo.stockName);
+         // console.log("平均情緒分:", dbData.averageSentimentScore);
+
+         return dbData;
+
+    } catch (error) {
+         console.error("❌ 抓取資料庫失敗:", error);
+         // 可以在這裡拋出錯誤或顯示提示給使用者
+    }
+}
+
 /**
  * 核心功能：從 Flask 後端 (Port 5000) 抓取分析資料
  * @param {string} code - 股票代碼 (例如: 2330)
