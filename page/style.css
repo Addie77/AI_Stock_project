@@ -1,60 +1,227 @@
-:root {
-    --bg-dark: #0f172a;
-    --card-bg: #1e293b;
-    --side-bg: #020617;
-    --text-main: #f8fafc;
-    --accent-blue: #38bdf8;
-    --predict-yellow: #fbbf24;
+/**
+ * ============================================================================
+ * 全域變數定義區 (Global CSS Variables / Custom Properties)
+ * 作用：集中控管深色科技風（Dark Mode）的主題配色，便於維護與全站視覺統一
+ * ============================================================================
+ */
+:root { 
+    --bg: #0f172a;      /* 全站底色：採用 slate-900 深藍灰色，降低視覺疲勞 */
+    --card: #1e293b;    /* 卡片區塊底色：採用 slate-800，建立立體視覺層次 */
+    --accent: #38bdf8;  /* 系統強調色：天藍色，用於高亮、按鈕與重要資訊顯示 */
+    --text: #f8fafc;    /* 主體文字顏色：微偏藍的亮白色，防止純白過於刺眼 */
 }
 
-body {
-    margin: 0;
-    font-family: 'Inter', 'Segoe UI', sans-serif;
-    background-color: var(--bg-dark);
-    color: var(--text-main);
+/**
+ * ============================================================================
+ * 基礎標籤樣式重設 (Base Elements Styles Reset)
+ * ============================================================================
+ */
+body { 
+    margin: 0;                    /* 消除瀏覽器預設的邊界死角，確保網頁完全滿版 */
+    background: var(--bg);        /* 帶入全域底色變數 */
+    color: var(--text);           /* 帶入全域文字變照變數 */
+    font-family: 'Inter', sans-serif; /* 設定科技風專用英文字體與後備無襯線字體 */
+    overflow-y: auto;             /* 關鍵優化：當內容（如 AI 報告展延）超出視窗時，允許垂直捲動 */
 }
 
-.container { display: flex; min-height: 100vh; }
+/**
+ * ============================================================================
+ * 核心版面佈局 (Main Dashboard Layout Structure)
+ * ============================================================================
+ */
+/* 儀表板外層大容器：利用 Flexbox 建立側邊欄固定、內容區自適應的雙欄架構 */
+.container { display: flex; }
 
-/* 側邊欄 */
-.sidebar { width: 220px; background: var(--side-bg); padding: 25px; border-right: 1px solid #1e293b; }
-.logo { font-size: 24px; font-weight: 800; color: var(--accent-blue); margin-bottom: 40px; letter-spacing: 1px; }
-.nav-links { list-style: none; padding: 0; }
-.nav-links li { padding: 12px 15px; cursor: pointer; border-radius: 10px; margin-bottom: 8px; transition: 0.3s; color: #94a3b8; }
-.nav-links li.active { background: #1e293b; color: var(--accent-blue); font-weight: bold; }
+/* 左側側邊導覽列 (Sidebar) */
+.sidebar { 
+    width: 200px;           /* 固定側邊欄寬度 */
+    background: #020617;    /* 比底色更深邃的極深藍（slate-950），增強階層感 */
+    height: 100vh;          /* 強制撐滿瀏覽器視窗高度（100% Viewport Height） */
+    position: sticky;       /* 💡 互動優化：當網頁向下捲動時，導覽列會固定固定在畫面左側不消失 */
+    top: 0; 
+    padding: 25px; 
+    box-sizing: border-box; /* 確保 padding 不會撐大原本設定的 200px 寬度 */
+}
 
-/* 主要區域 */
-.main-content { flex: 1; padding: 30px; overflow-y: auto; }
-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
-#stockSearch { background: var(--card-bg); border: 1px solid #334155; padding: 10px 20px; border-radius: 12px; color: white; width: 300px; }
+/* 專案系統標題 Logo */
+.logo { 
+    font-size: 24px; 
+    font-weight: 800;       /* 粗體字，強化品牌形象 */
+    color: var(--accent);   /* 天藍強調色 */
+    margin-bottom: 40px; 
+    letter-spacing: 1px;    /* 微調字距，呈現現代科技質感 */
+}
+
+/* 導覽選單列表外框 */
+.nav-links { list-style: none; padding: 0; margin: 0; }
+
+/* 導覽選單單一項目 (Market Overview / AI Report) */
+.nav-links li { 
+    padding: 12px 15px; 
+    cursor: pointer;        /* 滑鼠移入時呈現手指形狀，提升可點擊暗示（Affordance） */
+    border-radius: 10px;    /* 圓角化設計 */
+    margin-bottom: 8px; 
+    color: #94a3b8;         /* 預設為中性灰色文字 */
+    transition: all 0.2s;   /* 平滑過渡動畫，點擊或切換時視覺不生硬 */
+}
+
+/* 當前作用、被選取的選單項目高亮樣式 (由 script.js 動態調控) */
+.nav-links li.active { 
+    background: #1e293b;    /* 卡片底色亮起 */
+    color: var(--accent);   /* 文字轉為天藍強調色 */
+    font-weight: bold; 
+}
+
+/* 右側主要內容區外框 */
+.main-content { 
+    flex: 1;                /* 💡 彈性配置：自動填滿側邊欄剩餘的所有橫向螢幕空間 */
+    padding: 30px; 
+    display: flex; 
+    flex-direction: column; /* 區塊呈垂直由上至下排列 */
+    gap: 20px;              /* 元件與元件之間的固定安全間距 */
+}
+
+/**
+ * ============================================================================
+ * 頂部功能列與搜尋控制件 (Header & Search Controls)
+ * ============================================================================
+ */
+header { 
+    display: flex; 
+    align-items: center; 
+    justify-content: space-between; /* 搜尋框與股票標題、系統狀態維持左右兩端對齊 */
+    margin-bottom: 10px; 
+}
+
+/* 股票代碼輸入框 */
+#stockSearch { 
+    background: var(--card); 
+    border: 1px solid #334155; 
+    padding: 10px 20px; 
+    border-radius: 12px;    /* 大圓角現代風 */
+    color: white; 
+    width: 300px; 
+    outline: none;          /* 移除原生瀏覽器點擊時的粗黑外框 */
+    transition: border-color 0.2s;
+}
+#stockSearch:focus { border-color: var(--accent); } /* 點擊輸入時外框亮起天藍色 */
+
+/* 股票動態顯示名稱 */
+#displayName { font-size: 24px; font-weight: bold; color: var(--accent); }
+
+/* ONLINE 連線狀態字樣 */
 .online { color: #34d399; font-weight: bold; }
 
-/* 指標卡 */
-.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-.stat-card { background: var(--card-bg); padding: 20px; border-radius: 16px; text-align: center; border: 1px solid #334155; }
-.stat-number { font-size: 24px; font-weight: bold; margin-top: 10px; display: block; }
-.stat-desc { font-size: 12px; color: #64748b; margin-top: 8px; }
+/**
+ * ============================================================================
+ * 組件佈局與通用卡片設計 (Components Grid & Universal Cards)
+ * ============================================================================
+ */
+/* 💡 專題關鍵微調：將指標網格改為單欄 1fr，達成全站卡片元件（指標、圖表、報告）寬度完美對齊 */
+.stats-grid { 
+    display: grid; 
+    grid-template-columns: 1fr; 
+    gap: 20px; 
+}
 
-/* 情感條 */
-.sentiment-bar { background: #334155; height: 10px; border-radius: 5px; overflow: hidden; margin: 15px auto; width: 80%; }
-.sentiment-fill { background: linear-gradient(90deg, #f87171, #fbbf24, #34d399); height: 100%; width: 0%; transition: width 1.5s cubic-bezier(0.1, 0, 0.2, 1); }
+.chart-section, .ai-report-section { width: 100%; }
 
-/* 圓環機率 */
-.circular-chart { max-width: 70px; margin: 0 auto; }
-.circle-bg { fill: none; stroke: #334155; stroke-width: 3; }
-.circle { fill: none; stroke-width: 3; stroke-linecap: round; stroke: var(--accent-blue); transition: stroke-dasharray 1.5s ease; }
-.percentage { fill: #fff; font-size: 0.5em; text-anchor: middle; font-weight: bold; }
+/* 三大核心卡片（指標、圖表、報告）的基礎設計規範，確保 UI 系統的一致性（Consistency） */
+.stat-card, .chart-card, .news-card { 
+    background: var(--card); 
+    padding: 25px; 
+    border-radius: 16px; 
+    border: 1px solid #334155; /* 細部深灰邊框，在深色背景下勾勒出卡片邊緣線條 */
+}
 
-/* 儀表板佈局與圖表大小控制 */
-.dashboard-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 20px; }
-.chart-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid #334155; display: flex; flex-direction: column; }
-.canvas-wrapper { position: relative; height: 300px; width: 100%; margin-top: 15px; }
+/* Chart.js 畫布的包覆容器，強制指定 400px 高度防止圖表跑位 */
+.canvas-wrapper { height: 400px; width: 100%; margin-top: 15px; }
 
-/* 新聞樣式 */
-.news-card { background: var(--card-bg); padding: 20px; border-radius: 16px; border: 1px solid #334155; }
-.news-item { padding: 15px 0; border-bottom: 1px solid #334155; }
-.tag { font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: bold; }
-.positive { background: #065f46; color: #34d399; }
-.neutral { background: #334155; color: #94a3b8; }
-h4 { margin: 8px 0; font-size: 16px; }
-p { font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.5; }
+/**
+ * ============================================================================
+ * 本地端 FinBERT 情感進度條元件 (Sentiment Bar UI Components)
+ * ============================================================================
+ */
+/* 情感進度條外框軌道 */
+.sentiment-bar { 
+    background: #334155; 
+    height: 14px; 
+    border-radius: 7px; 
+    overflow: hidden;      /* 確保內條在延伸或裁切時不會超出圓角範圍 */
+    margin: 15px 0; 
+    width: 100%; 
+}
+
+/* 情感進度條內部填滿條 */
+.sentiment-fill { 
+    /* 💡 視覺亮點：採用金融情緒光譜漸層（紅：恐慌/賣壓 -> 黃：盤整觀望 -> 綠：樂觀/買盤） */
+    background: linear-gradient(90deg, #f87171, #fbbf24, #34d399); 
+    height: 100%; 
+    width: 0%;             /* 初始值為 0%，等待後端實時數據載入 */
+    transition: width 1s ease-out; /* 💡 動態亮點：當 script.js 寫入百分比時，會觸發 1 秒的平滑動畫向右延伸 */
+}
+
+/* 量化指標大數字顯示 */
+.stat-value { font-size: 32px; font-weight: bold; margin-top: 10px; }
+/* 指標小字說明 */
+.stat-desc { font-size: 13px; color: #64748b; margin-top: 5px; }
+
+/**
+ * ============================================================================
+ * 第二階段：雲端 AI 報告與操作建議框 (Generative AI Report Styling)
+ * ============================================================================
+ */
+.ai-report-section { 
+    margin-top: 20px; 
+    padding-bottom: 50px; /* 底部保留 50px 緩衝，防止滾動跳轉時畫面貼底卡死 */
+}
+#aiSummary { font-size: 1.15em; line-height: 1.6; color: #cbd5e1; }
+
+/* 進階實戰操作建議提示框 */
+.advice-box { 
+    margin-top: 15px; 
+    padding: 20px; 
+    /* 採用 10% 透明度的天藍色微光背景，與主色系相互呼應 */
+    background: rgba(56, 189, 248, 0.1); 
+    border-left: 5px solid var(--accent); /* 左側粗邊框設計，建立強烈的視覺提示（Alert Callout） */
+    border-radius: 8px; 
+    color: var(--accent);                 /* 文字強制高亮為天藍色，方便閱讀重點 */
+    line-height: 1.6;                     /* 最佳化閱讀體驗的行高配置 */
+}
+
+/**
+ * ============================================================================
+ * 兩階段控制：觸發按鈕樣式 (Interactive Primary Button)
+ * ============================================================================
+ */
+/* AI 報告標頭容器，將標題與生成按鈕平行置放 */
+.card-header-btn {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+.card-header-btn h3 { margin: 0; }
+
+/* 智能報告生成按鈕（系統主按鈕） */
+.primary-btn {
+    /* 採用符合現代科技風（SaaS 風格）的深藍到天藍微幅漸層 */
+    background: linear-gradient(135deg, #0284c7, #38bdf8);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    /* 同時微調透明度與變形縮放，建立流暢的互動回饋（Micro-interactions） */
+    transition: opacity 0.2s, transform 0.1s;
+}
+.primary-btn:hover { opacity: 0.9; }                     /* 滑鼠懸停：微幅亮起 */
+.primary-btn:active { transform: scale(0.98); }          /* 點擊瞬間：按鈕微幅往內縮小，模擬實體按鈕回彈感 */
+
+/* 💡 防禦性切版：當 JavaScript 判定 AI 正在連線中並將按鈕設為 disabled 時的樣式 */
+.primary-btn:disabled { 
+    background: #475569;  /* 轉為低調的 Slate 灰色，代表不可點擊 */
+    color: #94a3b8; 
+    cursor: not-allowed;  /* 滑鼠指針變更為禁止符號 */
+}
