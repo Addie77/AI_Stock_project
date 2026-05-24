@@ -17,7 +17,9 @@ def send_news_to_springboot(stock_id, news_list):
         title = item.get('title', '無標題')
         url = item.get('link')
         raw_time = item.get('time')
-        
+        sentiment_data = item.get('sentiment_result', {})
+        composite_score = sentiment_data.get('Composite_Score', 0.0)
+        text = item.get('text')
         # 爬下來的時間可能是 "2026-05-09 10:30:00"，但 Java 需要 "2026-05-09T10:30:00"
         try:
             parsed_time = datetime.strptime(raw_time, "%Y-%m-%d %H:%M:%S")
@@ -31,9 +33,8 @@ def send_news_to_springboot(stock_id, news_list):
             "title": title,
             "contentUrl": url,
             "publishDate": java_date,
-            # --- 尚未完成的 AI 部分 (填入假資料) ---
-            "sentimentScore": 50,
-            "contentSummary": f"[測試摘要] 這是關於『{title[:10]}...』的新聞重點擷取。"
+            "sentimentScore": composite_score,
+            "contentSummary": text
         }
         
         # 3. 發射 POST 請求

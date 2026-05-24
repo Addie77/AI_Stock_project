@@ -46,15 +46,15 @@ class SentimentAnalyzer:
 
         # 2. 計算權重綜合分數 (Composite Score)
         # Positive * 1 + Neutral * 0 + Negative * -1
-        composite_score = (detailed_scores.get('Positive', 0) * 1.0) + \
-                          (detailed_scores.get('Neutral', 0) * 0.0) + \
-                          (detailed_scores.get('Negative', 0) * -1.0)
+        composite_score = ((detailed_scores.get('Positive', 0) * 1.0) + \
+                          (detailed_scores.get('Neutral', 0) * 0.0) +\
+                          (detailed_scores.get('Negative', 0) * -1.0)+1)*50
 
         # 3. 四捨五入美化所有數值，準備輸出
         for key in detailed_scores:
-            detailed_scores[key] = round(detailed_scores[key], 4)
+            detailed_scores[key] = round(detailed_scores[key], 1)
             
-        detailed_scores["Composite_Score"] = round(composite_score, 4)
+        detailed_scores["Composite_Score"] = round(composite_score, 1)
 
         return detailed_scores
     

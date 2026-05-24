@@ -35,7 +35,12 @@ def process_and_save(data_list):
 
         scores = analyzer.analyze_text(item['text'])
 
-        item.update(scores)
+        item['sentiment_result'] = {
+            "Positive": scores.get("Positive", 0.0),
+            "Neutral": scores.get("Neutral", 0.0),
+            "Negative": scores.get("Negative", 0.0),
+            "Composive_Score": scores.get("Composive_Score", 0.0)
+        }
 
         if (i + 1) % 5 == 0:
             print(f"已完成處理 {i + 1}/{len(data_list)} 筆新聞...")
@@ -92,18 +97,22 @@ def news():
         for i, news in enumerate(all_news_results, 1):
             print(f"({i}) [標題]: {news['title']}")
             print(f"({i}) [ 連結 ]: {news['link']}")
-            #print(f"    [來源]: {news['source']}")
+            
             print(f"    [時間]: {news['time']}")
-            #preview = news['full_text'][:100].replace('\n', ' ')
+            
             print(f"    [摘要]: {news['text']}")
             print("-" * 60)
     return stock, all_news_results
 
 if __name__ == "__main__":
     stock_id, data = news()
-    # 3把資料交給我們的發送小幫手，打進 Spring Boot！
-    # send_news_to_springboot(stock_id, data)
-    #存一份 JSON 在本機
-    process_and_save(data)
+    if not data:
+        print("未抓取到資料，停止後續處理。")
+    else:
+        #存一份 JSON 在本機
+        # 把資料發送，打進 Spring Boot！
+        process_and_save(data)
+        send_news_to_springboot(stock_id, data)
+    
     
     
