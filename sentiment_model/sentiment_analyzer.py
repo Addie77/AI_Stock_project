@@ -52,9 +52,9 @@ class SentimentAnalyzer:
 
         # 3. 四捨五入美化所有數值，準備輸出
         for key in detailed_scores:
-            detailed_scores[key] = round(detailed_scores[key], 1)
+            detailed_scores[key] = round(detailed_scores[key], 4)
             
-        detailed_scores["Composite_Score"] = round(composite_score, 1)
+        detailed_scores["Composite_Score"] = round(composite_score, 0)
 
         return detailed_scores
     

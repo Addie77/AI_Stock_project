@@ -39,7 +39,7 @@ def process_and_save(data_list):
             "Positive": scores.get("Positive", 0.0),
             "Neutral": scores.get("Neutral", 0.0),
             "Negative": scores.get("Negative", 0.0),
-            "Composive_Score": scores.get("Composive_Score", 0.0)
+            "Composite_Score": scores.get("Composite_Score", 0.0)
         }
 
         if (i + 1) % 5 == 0:
@@ -93,15 +93,7 @@ def news():
     print("\n" + "=" * 60)
     if not all_news_results:
         print("未抓取到任何新聞")
-    else:
-        for i, news in enumerate(all_news_results, 1):
-            print(f"({i}) [標題]: {news['title']}")
-            print(f"({i}) [ 連結 ]: {news['link']}")
-            
-            print(f"    [時間]: {news['time']}")
-            
-            print(f"    [摘要]: {news['text']}")
-            print("-" * 60)
+    
     return stock, all_news_results
 
 if __name__ == "__main__":
