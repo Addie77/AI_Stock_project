@@ -27,8 +27,6 @@ public class DataIngestionController {
 
         // 1. 從 Python 傳來的 JSON 中取出股票代號
         String stockId = (String) payload.get("stockId");
-        String contentUrl = (String) payload.get("contentUrl");
-
         // 🌟 自動註冊機制：檢查資料庫有沒有這檔股票
         Stock stock = stockRepo.findById(stockId).orElse(null);
         if(stock == null){
