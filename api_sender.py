@@ -48,4 +48,28 @@ def send_news_to_springboot(stock_id, news_list):
         except requests.exceptions.ConnectionError:
             print("\n⚠️ 連線失敗！請確認你的 Spring Boot 伺服器 (8080 port) 正在執行中。")
             break
-            
+
+def send_report_to_springboot(stock_id, avg_score, gemini_summary):
+    """將計算好的平均分數與 Gemini 總結發送給 Spring Boot"""
+    api_url = "http://localhost:8080/api/ingest/report"
+    # 抓取今天日期，格式為 YYYY-MM-DD
+    today_str = datetime.now().strftime("%Y-%m-%d")
+
+    payload = {
+        "stockId": str(stock_id),
+        "analysisDate": today_str,
+        "avgSentiment": float(avg_score),
+        "overallSummary": gemini_summary
+    }
+
+    print(f"\n準備將 {stock_id} 的總評報告發送至 Spring Boot...")
+
+    try:
+        response = requests.post(api_url, json=payload)
+        if response.status_code == 200:
+            print(f"✅ 報告發送成功: {response.text}")
+        else:
+            print(f"❌ 報告發送失敗 ({response.status_code}): {response.text}")
+
+    except requests.exceptions.ChunkedEncodingError:
+        print("\n⚠️ 連線失敗！請確認 Spring Boot 伺服器 (8080 port) 正在執行中。") 

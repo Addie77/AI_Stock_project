@@ -5,6 +5,9 @@ import com.example.demo.entity.Stock;
 import com.example.demo.repository.NewsSentimentRepository;
 import com.example.demo.repository.StockRepository;
 import org.springframework.web.bind.annotation.*;
+import com.example.demo.entity.StockAnalysisReport; // 加入這行
+import com.example.demo.repository.StockAnalysisReportRepository; // 加入這行
+import java.time.LocalDate;
 
 import java.time.LocalDateTime;
 import java.util.Map;
@@ -15,10 +18,12 @@ public class DataIngestionController {
 
     private final StockRepository stockRepo;
     private final NewsSentimentRepository newsRepo;
+    private final StockAnalysisReportRepository reportRepo;
 
-    public DataIngestionController(StockRepository stockRepo, NewsSentimentRepository newsRepo) {
+    public DataIngestionController(StockRepository stockRepo, NewsSentimentRepository newsRepo,  StockAnalysisReportRepository reportRepo) {
         this.stockRepo = stockRepo;
         this.newsRepo = newsRepo;
+        this.reportRepo = reportRepo;
     }
 
     // 接收 Python 發送的 POST 請求
@@ -56,4 +61,43 @@ public class DataIngestionController {
 
     }
 
+    @PostMapping("/report")
+    public String receiveAnalysisReport(@RequestBody Map<String, Object> payload){
+
+        String stockId = (String) payload.get("stockId");
+        // 1. 檢查股票是否存在
+        Stock stock = stockRepo.findById(stockId).orElse(null);
+        if (stock == null) {
+            return "錯誤：找不到股票代號 " + stockId + "，無法儲存報告。";
+        }
+
+        // 2. 解析日期 (Python 傳來的是 YYYY-MM-DD)
+        LocalDate analysisDate = LocalDate.parse((String) payload.get("analysisDate"));
+
+        // 3. 檢查今天是否已經有報告了 (Update or Insert)
+        StockAnalysisReport report = reportRepo.findByStock_StockIdAndAnalysisDate(stockId, analysisDate).orElse(null);
+
+        if(report == null){
+            // 如果沒有，建一個新的
+            report = new StockAnalysisReport();
+            report.setStock(stock);
+            report.setAnalysisDate(analysisDate);
+            System.out.println("📝 建立新的分析報告：" + stockId);
+        }else{
+            System.out.println("🔄 更新今日分析報告：" + stockId);
+        }
+
+        // 4. 塞入分數與 Gemini 產生的總評
+        // 處理 Double 型態轉換，避免 JSON 傳整數時出錯
+        Number avgScore = (Number) payload.get("avgSentiment");
+        report.setAvgSentiment(avgScore.doubleValue());
+
+        report.setOverallSummary((String) payload.get("overallSummary"));
+
+        // 5. 存入資料庫
+        reportRepo.save(report);
+
+         return "成功：已儲存 " + stockId + " 的 AI 綜合分析報告！";
+
+    }
 }

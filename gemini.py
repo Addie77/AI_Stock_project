@@ -5,10 +5,12 @@ from google import genai
 from google.genai import types
 from dotenv import load_dotenv
 import json
+import requests
 
-# 💡 模組化解耦匯入：引入子資料夾內的本地端 FinBERT 模型與外部證交所爬蟲模組
-from sentiment_model.sentiment_analyzer import SentimentAnalyzer
+# 💡 模組化解耦匯入：引入外部證交所爬蟲模組
 from stock import get_stock_historical_data
+from news_Scraping.news import run_full_news_pipeline
+from api_sender import send_news_to_springboot, send_report_to_springboot
 
 # --- 1. 初始化環境與核心組件 (Initialization & Setup) ---
 # 取得目前執行腳本的絕對路徑，確保讀取環境變數與資源時不受終端機工作目錄（CWD）影響
@@ -24,10 +26,6 @@ CORS(app)
 # 初始化 Google New GenAI SDK 用戶端，實時從環境變數中自動讀取並載入 API Key
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
-# 💡 專題亮點：在服務啟動（Boot-up）時先行載入本地端 PyTorch Transformer 模型權重，防止使用者搜尋時產生延遲
-print("🧠 正在初始化本地 FinBERT 情感模型，請稍候...")
-local_analyzer = SentimentAnalyzer()
-print("🎯 FinBERT 模型載入成功！")
 
 # 💡 記憶體快取防禦機制（In-Memory Cache）：
 # 用於儲存當日已爬取股票與已生成 AI 報告，嚴格防止使用者重複搜尋時大量觸發證交所 IP 封鎖或浪費 Gemini 雲端 Token 成本
@@ -60,22 +58,16 @@ def analyze():
     prices = df_hist['收盤價'].tolist()    # 過去 3 個月的每日歷史收盤價陣列（前端 Y 軸數據來源）
     current_price = prices[-1]           # 最新一筆交易日收盤價，即為當前實時市價
 
-    # 💡 終極真實化數據轉譯（Feature Engineering to NLP Text）：
-    # 絕不使用預先寫死的假文本。我們透過演算法直接拿最近 5 個交易日的真實價格波動，動態拼接成符合金融語意的客觀特徵文本
-    recent_trend_text = (
-        f"個股{name}({code})當前最新收盤價為{current_price}元。綜合檢視最近期的價格波動軌跡，"
-        f"近五個交易日的歷史收盤價依序分別為：{', '.join(map(str, prices[-5:]))}元。"
-        f"此數據反映了該股票在市場上的實時量價成交共識，以此作為技術面情緒情緒演算之客觀依據。"
-    )
-    
-    # 呼叫本地端部署的 FinBERT 金融預訓練模型進行即時語意情緒權重推論（Inference）
-    bert_result = local_analyzer.analyze_text(recent_trend_text)
-    composite = bert_result.get("Composite_Score", 0.0) # 取得範圍在 [-1.0 至 +1.0] 之間的連續權重分數
-    
-    # 【線性映射公式】：將 BERT 產出的抽象分數區間，透過數學公式 (Composite + 1) * 50 線性映射至前端進度條專用的 [0 至 100] 分
-    final_sentiment_score = round((composite + 1.0) * 50.0)
-    # 邊界防禦控制（Clamp）：強迫數值絕對不超出 0-100 安全合法區間
-    final_sentiment_score = max(0, min(100, final_sentiment_score))
+    # 💡 修正 1：先給預設值，防止 NameError
+    real_score = 50
+    try:
+        java_res = requests.get(f"http://localhost:8080/api/stocks/{code}")
+        java_data = java_res.json()
+        real_score = java_data.get("averageSentimentScore")
+        if not real_score:
+            real_score = 50 # 拿不到才用 50
+    except Exception as e:
+        print(f"⚠️ 無法取得資料庫現有分數: {e}")
 
     # 封裝標準 JSON 回應包
     result = {
@@ -83,13 +75,64 @@ def analyze():
         "current_price": current_price,
         "history_dates": dates,     
         "history_prices": prices,   
-        "sentiment_score": final_sentiment_score # 本地模型真實即時演算的分數
+        "sentiment_score": real_score
     }
     
     # 將計算結果寫入記憶體快取
     stock_cache[code] = result
     return jsonify(result)
 
+@app.route('/api/sync_news', methods=['GET'])
+def sync_news():
+    code = request.args.get('code', '').strip().zfill(4)
+    if not code:
+        return jsonify({"error": "缺少股票代碼"}), 400
+    
+    print(f"📡 正在處理 {code} 的新聞同步流程...")
+
+    try:
+        # 1. 執行爬蟲與 BERT 分數計算 (由 news.py 處理)
+        analyzed_data = run_full_news_pipeline(code)
+        if not analyzed_data:
+            return jsonify({"error": "未能獲取新聞資料"}), 404
+        
+        # 2. 將單則新聞存入 Spring Boot
+        send_news_to_springboot(code, analyzed_data)
+
+        # 3. 計算平均情緒分數
+        scores = [item.get('sentiment_result', {}).get('Composite_Score', 50) 
+                for item in analyzed_data]
+        avg_score = round(sum(scores) / len(scores), 2)
+
+        # 4. 餵給 Gemini 產生「新聞消息面」總評
+        news_text = "\n".join([f"新聞: {n['title']}\n內容: {n['text']}" for n in analyzed_data[:10]])
+        
+        prompt = (
+            f"你是一名專業財經分析師。股票 {code} 的最新新聞平均情緒分數為{avg_score}。\n"
+            f"以下是新聞內容摘要：\n{news_text}\n\n"
+            f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。"
+        )
+
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
+        gemini_summary = response.text.strip()
+
+        if code in stock_cache:
+            stock_cache[code]['sentiment_score'] = avg_score
+
+        # 5. 將彙整報告發送給 Spring Boot
+        send_report_to_springboot(code, avg_score, gemini_summary)
+        
+        return jsonify({
+            "status": "success",
+            "avg_sentiment": avg_score,
+            "ai_summary": gemini_summary
+        })
+    except Exception as e:
+        print(f"❌ 同步失敗: {e}")
+        return jsonify({"error": str(e)}), 500
 
 # ============================================================================
 # --- 3. API 路由 2：觸發按鈕才調用雲端大語言模型產生真實形態報告 ---
@@ -150,6 +193,10 @@ def generate_ai():
         # 💡 品質防禦安全機制：檢查 AI 內部生成的實質內容是否殘缺，如果欄位為空值直接手動拋出異常觸發斷點
         if not result["analysis_summary"] or not result["advice"]:
             raise ValueError("AI 回傳欄位內容不完整")
+        
+        # 成功生成則存入 AI 報告快取，並將結果編譯序列化為 JSON 格式回傳給前端
+        ai_cache[code] = result
+        return jsonify(result)
             
     except Exception as e:
         # 例外控制（Exception Control）：若 API 金鑰過期、額度用盡或網路瞬斷，列印真實錯誤日誌（Log）
@@ -158,10 +205,6 @@ def generate_ai():
         # 💡 終極真實化去偽存真：當雲端大模型真正連線失敗時，拒絕提供任何假編的偽數據報告。
         # 直接回傳 502 Bad Gateway 網關錯誤狀態碼與實質錯誤原因，讓前端 UI 據實向使用者與口試委員呈報，展現高度學術誠實性
         return jsonify({"error": "雲端 AI 服務暫時無法連線，報告生成失敗。請檢查您的 API 金鑰狀態或網路環境。"}), 502
-
-    # 成功生成則存入 AI 報告快取，並將結果編譯序列化為 JSON 格式回傳給前端
-    ai_cache[code] = result
-    return jsonify(result)
 
 
 # --- 4. 後端服務啟動進入點 (Execution Entry Point) ---
