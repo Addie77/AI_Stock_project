@@ -1,20 +1,19 @@
 import sys
 import os
-import time
-import random
-from news_cnyes import scrap_cnyes
-from news_ettoday import scrap_ettoday
-from news_yahoo import scrap_yahoo
 import json
 from opencc import OpenCC
 
 # 1. 💡 先計算並加入父目錄路徑
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir,".."))
+
+if current_dir not in sys.path:
+    sys.path.append(current_dir)
 if parent_dir not in sys.path:
     sys.path.append(parent_dir)
 
 # 2. 💡 路徑加完後，再 import 根目錄的檔案
+from news_yahoo import scrap_yahoo
 from api_sender import send_news_to_springboot
 from sentiment_model.sentiment_analyzer import SentimentAnalyzer
 

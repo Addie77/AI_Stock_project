@@ -101,7 +101,7 @@ async function fetchStockData(code) {
 
 /**
  * ============================================================================
- * 第二階段：點擊按鈕生成雲端 AI 投顧級技術面深度分析報告
+ * 第二階段：點擊按鈕同步新聞並生成雲端 AI 投顧級深度分析報告
  * ============================================================================
  */
 async function fetchAiReport(code) {
@@ -110,34 +110,49 @@ async function fetchAiReport(code) {
     const btn = document.getElementById('generateAiBtn');
 
     // 更新 UI 為載入中狀態（Loading State）
-    aiSummary.innerText = "🧠 AI 正在研讀 3 個月歷史數據形態，並撰寫報告中...";
+    aiSummary.innerText = "🧠 AI 正在同步最新新聞並研讀歷史數據形態，這可能需要約 30 秒，請稍候...";
     aiAdvice.style.display = 'none'; // 隱藏前次內容
-    btn.disabled = true;             // 💡 關鍵：禁用按鈕防止使用者在連線期間重複點擊，造成 API 請求溢出
+    btn.disabled = true;             // 💡 關鍵：禁用按鈕防止使用者在連線期間重複點擊
 
     try {
-        // 發送 HTTP GET 請求至後端第二階段 API (此處會正式調用雲端大語言模型 gemini-2.5-flash)
-        const response = await fetch(`http://127.0.0.1:5000/api/generate_ai?code=${code}`);
-        const data = await response.json();
+        // --- 第一步：同步新聞與情緒分數 ---
+        console.log("📡 正在同步新聞...");
+        const syncResponse = await fetch(`http://127.0.0.1:5000/api/sync_news?code=${code}`);
+        const syncData = await syncResponse.json();
         
-        // 網路層防禦：若後端回傳錯誤（如 API 金鑰過期），拋出錯誤進入 catch
-        if (!response.ok) throw new Error(data.error || "未知的系統錯誤");
+        if (!syncResponse.ok) throw new Error(syncData.error || "新聞同步失敗");
+
+        // 即時更新 UI 上的情感分數進度條
+        document.getElementById('sentFill').style.width = syncData.avg_sentiment + '%'; 
+        document.getElementById('sentVal').innerText = syncData.avg_sentiment + " / 100";
+        console.log("✅ 新聞同步完成，情感分數已更新。");
+
+        // --- 第二步：生成技術面 AI 報告 ---
+        console.log("🤖 正在生成技術面報告...");
+        const aiResponse = await fetch(`http://127.0.0.1:5000/api/generate_ai?code=${code}`);
+        const aiData = await aiResponse.json();
+        
+        if (!aiResponse.ok) throw new Error(aiData.error || "AI 報告生成失敗");
 
         // 【渲染真實報告 1】：動態填入經技術形態學分析後的詳細大篇幅總結
-        aiSummary.innerText = data.analysis_summary;
+        aiSummary.innerText = aiData.analysis_summary;
         
-        // 【渲染真實報告 2】：動態填入具體的實戰操作、資金配比、支撐與壓力位策略建議
-        aiAdvice.innerHTML = `💡 基於歷史走勢之操作建議：<br>${data.advice}`;
+        // 【渲染真實報告 2】：結合「新聞總評」與「技術面建議」進行綜合呈現
+        aiAdvice.innerHTML = `
+            <strong>📰 新聞消息面總評：</strong><br>
+            ${syncData.ai_summary}<br><br>
+            <strong>💡 技術面操作建議：</strong><br>
+            ${aiData.advice}
+        `;
         
-        // 將建議區塊從 display:none 切換為 block 展開呈現
         aiAdvice.style.display = 'block'; 
+        console.log("✨ 綜合 AI 報告渲染成功！");
         
     } catch (error) {
         console.error("AI Error:", error);
-        // 若 AI 生成遭遇任何系統級崩潰，如實向使用者報錯，確保資料真實不造假
-        aiSummary.innerText = `❌ 報告生成失敗：${error.message}`;
+        aiSummary.innerText = `❌ 執行失敗：${error.message}`;
         aiAdvice.style.display = 'none';
     } finally {
-        // 無論連線成功或失敗，最後都必須解除按鈕禁用狀態，恢復可操作性
         btn.disabled = false;
     }
 }

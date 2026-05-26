@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import json
 import requests
 
+
 # 💡 模組化解耦匯入：引入外部證交所爬蟲模組
 from stock import get_stock_historical_data
 from news_Scraping.news import run_full_news_pipeline

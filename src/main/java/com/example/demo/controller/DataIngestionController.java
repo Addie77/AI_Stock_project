@@ -29,7 +29,10 @@ public class DataIngestionController {
     // 接收 Python 發送的 POST 請求
     @PostMapping("/news")
     public String receiveNewsData(@RequestBody Map<String, Object> payload){
-
+        String contentUrl = (String) payload.get("contentUrl");
+        if (newsRepo.existsByContentUrl(contentUrl)) {
+            return "跳過：此新聞已存在於資料庫中。";
+        }
         // 1. 從 Python 傳來的 JSON 中取出股票代號
         String stockId = (String) payload.get("stockId");
         // 🌟 自動註冊機制：檢查資料庫有沒有這檔股票
@@ -51,7 +54,8 @@ public class DataIngestionController {
         news.setPublishDate(LocalDateTime.parse((String) payload.get("publishDate")));
         news.setTitle((String) payload.get("title"));
         news.setContentUrl((String) payload.get("contentUrl"));
-        news.setSentimentScore((Integer) payload.get("sentimentScore"));
+        Number score = (Number) payload.get("sentimentScore");
+        news.setSentimentScore(score != null ? score.intValue() : 0);
         news.setContentSummary((String) payload.get("contentSummary"));
 
         // 4. 遙控器按下 Save，存入 MySQL！
