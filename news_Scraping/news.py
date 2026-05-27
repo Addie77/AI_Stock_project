@@ -68,7 +68,7 @@ def run_full_news_pipeline(stock_id):
     print(f"\n🚀 [Pipeline] 開始執行 {stock_id} 的完整新聞任務...")
     
     try:
-        yahoo_news = scrap_yahoo(symbol=stock_id, daily_limit=10) # 限制數量加快速度
+        yahoo_news = scrap_yahoo(symbol=stock_id, daily_limit=30) 
         all_news_results.extend(yahoo_news)
         print("成功獲取 Yahoo 新聞")
     except Exception as e:

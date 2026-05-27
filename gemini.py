@@ -172,7 +172,7 @@ def generate_ai():
         f"【重要限制】\n"
         f"- 內容篇幅請儘量詳盡充實（分析總結至少 150 字，操作建議至少 150 字），展現專業投顧報告的深度。\n"
         f"- 請嚴格回傳標準 JSON 格式，不可以包含任何 Markdown 的 ```json 標籤或其餘雜訊文字，直接以花括號開頭與結尾：\n"
-        f"{{'analysis_summary':'此處填寫極為詳盡的技術形態與市場情緒深度分析總結（文長）', 'advice':'此處填寫具體的實戰操作、資金配置、支撐壓力位與避險戰術策略建議（文長）'}}"
+        f'{{"analysis_summary":"此處填寫極為詳盡的技術形態與市場情緒深度分析總結（文長）", "advice":"此處填寫具體的實戰操作、資金配置、支撐壓力位與避險戰術策略建議（文長）"}}'
     )
 
     try:
@@ -182,9 +182,11 @@ def generate_ai():
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
-        
+
+        # 💡 增加 JSON 清洗邏輯，確保無 Markdown 標籤干擾
+        raw_text = response.text.replace("```json", "").replace("```", "").strip()
         # 解析雲端 AI 回傳的純文字 JSON 字串，轉換為 Python 字典（Dictionary）格式
-        ai_data = json.loads(response.text)
+        ai_data = json.loads(raw_text)
         result = {
             "analysis_summary": ai_data.get("analysis_summary"),
             "advice": ai_data.get("advice")
@@ -212,4 +214,4 @@ def generate_ai():
 if __name__ == '__main__':
     # 啟動 Flask 內建的本機 Web 伺服器
     # debug=True 代表啟用動態熱部署（Hot-reload），當偵測到後端程式碼修改儲存時會自動重啟服務，並在終端機輸出詳細的 Traceback 日誌
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5000, threaded=True)

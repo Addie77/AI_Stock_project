@@ -110,39 +110,37 @@ async function fetchAiReport(code) {
     const btn = document.getElementById('generateAiBtn');
 
     // 更新 UI 為載入中狀態（Loading State）
-    aiSummary.innerText = "🧠 AI 正在同步最新新聞並研讀歷史數據形態，這可能需要約 30 秒，請稍候...";
+    aiSummary.innerText = "🧠 AI 正在同步最新新聞並研讀歷史數據形態，這可能需要約 30-90 秒，請稍候...";
     aiAdvice.style.display = 'none'; // 隱藏前次內容
     btn.disabled = true;             // 💡 關鍵：禁用按鈕防止使用者在連線期間重複點擊
 
     try {
-        // --- 第一步：同步新聞與情緒分數 ---
-        console.log("📡 正在同步新聞...");
-        const syncResponse = await fetch(`http://127.0.0.1:5000/api/sync_news?code=${code}`);
-        const syncData = await syncResponse.json();
-        
-        if (!syncResponse.ok) throw new Error(syncData.error || "新聞同步失敗");
+        // 💡 關鍵修正：同時發送兩個非同步請求，避免其中一個耗時過長導致後續步驟被中斷或超時
+        const syncPromise = fetch(`http://127.0.0.1:5000/api/sync_news?code=${code}`).then(res => res.json().then(data => ({ ok: res.ok, data })));
+        const aiPromise = fetch(`http://127.0.0.1:5000/api/generate_ai?code=${code}`).then(res => res.json().then(data => ({ ok: res.ok, data })));
 
-        // 即時更新 UI 上的情感分數進度條
-        document.getElementById('sentFill').style.width = syncData.avg_sentiment + '%'; 
-        document.getElementById('sentVal').innerText = syncData.avg_sentiment + " / 100";
-        console.log("✅ 新聞同步完成，情感分數已更新。");
-
-        // --- 第二步：生成技術面 AI 報告 ---
-        console.log("🤖 正在生成技術面報告...");
-        const aiResponse = await fetch(`http://127.0.0.1:5000/api/generate_ai?code=${code}`);
-        const aiData = await aiResponse.json();
-        
-        if (!aiResponse.ok) throw new Error(aiData.error || "AI 報告生成失敗");
+        // 我們先等 AI 技術面報告 (通常較快) 來更新長文
+        const aiResult = await aiPromise;
+        if (!aiResult.ok) throw new Error(aiResult.data.error || "AI 報告生成失敗");
 
         // 【渲染真實報告 1】：動態填入經技術形態學分析後的詳細大篇幅總結
-        aiSummary.innerText = aiData.analysis_summary;
-        
+        aiSummary.innerText = aiResult.data.analysis_summary;
+
+        // 再等新聞同步完成 (爬蟲與情緒分析較慢)
+        const syncResult = await syncPromise;
+        if (!syncResult.ok) throw new Error(syncResult.data.error || "新聞同步失敗");
+
+        // 即時更新 UI 上的情感分數進度條
+        document.getElementById('sentFill').style.width = syncResult.data.avg_sentiment + '%'; 
+        document.getElementById('sentVal').innerText = syncResult.data.avg_sentiment + " / 100";
+        console.log("✅ 新聞同步完成，情感分數已更新。");
+
         // 【渲染真實報告 2】：結合「新聞總評」與「技術面建議」進行綜合呈現
         aiAdvice.innerHTML = `
             <strong>📰 新聞消息面總評：</strong><br>
-            ${syncData.ai_summary}<br><br>
+            ${syncResult.data.ai_summary}<br><br>
             <strong>💡 技術面操作建議：</strong><br>
-            ${aiData.advice}
+            ${aiResult.data.advice}
         `;
         
         aiAdvice.style.display = 'block'; 
