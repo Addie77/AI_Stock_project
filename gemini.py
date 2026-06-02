@@ -28,11 +28,16 @@ CORS(app)
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
+import threading
+
 # 💡 記憶體快取防禦機制（In-Memory Cache）：
 # 用於儲存當日已爬取股票與已生成 AI 報告，嚴格防止使用者重複搜尋時大量觸發證交所 IP 封鎖或浪費 Gemini 雲端 Token 成本
 stock_cache = {}
 ai_cache = {}
 
+# 💡 新增：用於追蹤背景任務狀態的字典
+# 格式: { "2330": {"status": "running", "avg_sentiment": 0, "ai_summary": ""}, ... }
+news_tasks = {}
 
 # ============================================================================
 # --- 2. API 路由 1：輸出真實歷史數據與本地端真實情緒分數 ---
@@ -89,51 +94,98 @@ def sync_news():
     if not code:
         return jsonify({"error": "缺少股票代碼"}), 400
     
-    print(f"📡 正在處理 {code} 的新聞同步流程...")
+    # 如果任務已經在跑了，就不用重複啟動
+    if code in news_tasks and news_tasks[code]['status'] == 'running':
+        return jsonify({"status": "already_running", "message": "任務已在背景執行中"})
 
+    # 💡 智慧檢查：先問 Java 後端今天是否已經有分析報告了
     try:
-        # 1. 執行爬蟲與 BERT 分數計算 (由 news.py 處理)
-        analyzed_data = run_full_news_pipeline(code)
-        if not analyzed_data:
-            return jsonify({"error": "未能獲取新聞資料"}), 404
-        
-        # 2. 將單則新聞存入 Spring Boot
-        send_news_to_springboot(code, analyzed_data)
-
-        # 3. 計算平均情緒分數
-        scores = [item.get('sentiment_result', {}).get('Composite_Score', 50) 
-                for item in analyzed_data]
-        avg_score = round(sum(scores) / len(scores), 2)
-
-        # 4. 餵給 Gemini 產生「新聞消息面」總評
-        news_text = "\n".join([f"新聞: {n['title']}\n內容: {n['text']}" for n in analyzed_data[:10]])
-        
-        prompt = (
-            f"你是一名專業財經分析師。股票 {code} 的最新新聞平均情緒分數為{avg_score}。\n"
-            f"以下是新聞內容摘要：\n{news_text}\n\n"
-            f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。"
-        )
-
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
-        )
-        gemini_summary = response.text.strip()
-
-        if code in stock_cache:
-            stock_cache[code]['sentiment_score'] = avg_score
-
-        # 5. 將彙整報告發送給 Spring Boot
-        send_report_to_springboot(code, avg_score, gemini_summary)
-        
-        return jsonify({
-            "status": "success",
-            "avg_sentiment": avg_score,
-            "ai_summary": gemini_summary
-        })
+        java_res = requests.get(f"http://localhost:8080/api/stocks/{code}")
+        if java_res.status_code == 200:
+            java_data = java_res.json()
+            # 如果已有情緒分數且有總評，代表今日已完成
+            if java_data.get("averageSentimentScore") and java_data.get("overallAiSummary"):
+                print(f"🎯 {code} 今日已有分析報告，跳過爬蟲。")
+                avg_score = java_data.get("averageSentimentScore")
+                summary_text = java_data.get("overallAiSummary")
+                
+                news_tasks[code] = {
+                    "status": "completed",
+                    "avg_sentiment": avg_score,
+                    "ai_summary": summary_text
+                }
+                return jsonify({
+                    "status": "completed", 
+                    "message": "今日報告已存在，直接載入快取數據",
+                    "avg_sentiment": avg_score,
+                    "ai_summary": summary_text
+                })
     except Exception as e:
-        print(f"❌ 同步失敗: {e}")
-        return jsonify({"error": str(e)}), 500
+        print(f"⚠️ 檢查 Java 報告失敗: {e}")
+
+    # 💡 啟動新爬蟲時，才清除該股的舊 AI 報告快取
+    if code in ai_cache:
+        del ai_cache[code]
+
+    # 初始化狀態
+    news_tasks[code] = {"status": "running", "avg_sentiment": 0, "ai_summary": "正在處理中..."}
+
+    def background_sync(stock_id):
+        print(f"📡 [Background] 開始處理 {stock_id} 的新聞同步流程...")
+        try:
+            # 1. 執行爬蟲與 BERT 分數計算
+            analyzed_data = run_full_news_pipeline(stock_id)
+            if not analyzed_data:
+                news_tasks[stock_id] = {"status": "error", "message": "未能獲取新聞資料"}
+                return
+            
+            # 2. 將單則新聞存入 Spring Boot
+            send_news_to_springboot(stock_id, analyzed_data)
+
+            # 3. 計算平均情緒分數
+            scores = [item.get('sentiment_result', {}).get('Composite_Score', 50) for item in analyzed_data]
+            avg_score = round(sum(scores) / len(scores), 2)
+
+            # 4. 餵給 Gemini 產生「新聞消息面」總評
+            news_text = "\n".join([f"新聞: {n['title']}\n內容: {n['text']}" for n in analyzed_data[:10]])
+            prompt = (
+                f"你是一名專業財經分析師。股票 {stock_id} 的最新新聞平均情緒分數為{avg_score}。\n"
+                f"以下是新聞內容摘要：\n{news_text}\n\n"
+                f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。"
+            )
+            response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            gemini_summary = response.text.strip()
+
+            if stock_id in stock_cache:
+                stock_cache[stock_id]['sentiment_score'] = avg_score
+
+            # 5. 將彙整報告發送給 Spring Boot
+            send_report_to_springboot(stock_id, avg_score, gemini_summary)
+            
+            # 更新任務狀態為完成
+            news_tasks[stock_id] = {
+                "status": "completed",
+                "avg_sentiment": avg_score,
+                "ai_summary": gemini_summary
+            }
+            print(f"✨ [Background] {stock_id} 新聞處理完成！")
+        except Exception as e:
+            print(f"❌ [Background] 同步失敗: {e}")
+            news_tasks[stock_id] = {"status": "error", "message": str(e)}
+
+    # 啟動背景執行緒
+    thread = threading.Thread(target=background_sync, args=(code,))
+    thread.start()
+
+    return jsonify({"status": "started", "message": "已在背景啟動新聞爬蟲與分析任務"})
+
+@app.route('/api/check_status', methods=['GET'])
+def check_status():
+    code = request.args.get('code', '').strip().zfill(4)
+    # 從全域任務字典中讀取狀態
+    status_info = news_tasks.get(code, {"status": "not_found"})
+    return jsonify(status_info)
+
 
 # ============================================================================
 # --- 3. API 路由 2：觸發按鈕才調用雲端大語言模型產生真實形態報告 ---

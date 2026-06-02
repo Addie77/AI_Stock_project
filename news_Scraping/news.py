@@ -99,13 +99,13 @@ def run_full_news_pipeline(stock_id):
     process_sentiment_and_conversion(all_news_results)
 
     # 3. 儲存一份備份 JSON 在本地 (除錯用)
-    file_name = "news_data.json"
-    try:
-        with open(file_name, 'w', encoding='utf-8') as f:
-            json.dump(all_news_results, f, ensure_ascii=False, indent=4)
-        print(f"--- 成功儲存至: {file_name} ---")
-    except Exception as e:
-        print(f"本地 JSON 儲存失敗: {e}")
+    # file_name = "news_data.json"
+    # try:
+    #     with open(file_name, 'w', encoding='utf-8') as f:
+    #         json.dump(all_news_results, f, ensure_ascii=False, indent=4)
+    #     print(f"--- 成功儲存至: {file_name} ---")
+    # except Exception as e:
+    #     print(f"本地 JSON 儲存失敗: {e}")
 
     print(f"✨ {stock_id} 新聞任務執行完成！")
     return all_news_results

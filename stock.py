@@ -60,7 +60,8 @@ def get_stock_historical_data(code):
                 tw_year = dt.year - 1911
                 tpex_date_str = f"{tw_year}/{dt.strftime('%m')}"
                 
-                tpex_url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/stk_quote_result.php?l=zh-tw&d={tpex_date_str}&stk_no={code}"
+                # 修正：櫃買中心 API 路徑已變更，且為大小寫敏感
+                tpex_url = f"https://www.tpex.org.tw/web/stock/aftertrading/DAILY_CLOSE_quotes/stk_quote_result.php?l=zh-tw&d={tpex_date_str}&stkno={code}"
                 res = requests.get(tpex_url, verify=False, timeout=10)
                 data = res.json()
                 
