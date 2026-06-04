@@ -25,6 +25,9 @@ public class StockAnalysisReport {
     @Column(name = "overall_summary", columnDefinition = "TEXT")
     private String overallSummary;
 
+    @Column(name = "report_type", nullable = false)
+    private String reportType = "TEMPLATE";
+
     public Long getReportId() { return reportId; }
     public void setReportId(Long reportId) { this.reportId = reportId; }
     public Stock getStock() { return stock; }
@@ -35,4 +38,6 @@ public class StockAnalysisReport {
     public void setAvgSentiment(Double avgSentiment) { this.avgSentiment = avgSentiment; }
     public String getOverallSummary() { return overallSummary; }
     public void setOverallSummary(String overallSummary) { this.overallSummary = overallSummary; }
+    public String getReportType() { return reportType; }
+    public void setReportType(String reportType) { this.reportType = reportType; }
 }

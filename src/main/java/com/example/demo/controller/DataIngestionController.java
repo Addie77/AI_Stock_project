@@ -98,6 +98,10 @@ public class DataIngestionController {
 
         report.setOverallSummary((String) payload.get("overallSummary"));
 
+        // 🌟 新增：設定報告類型 (Python 傳來的一律視為 DEEP_AI)
+        String reportType = (String) payload.getOrDefault("reportType", "DEEP_AI");
+        report.setReportType(reportType);
+
         // 5. 存入資料庫
         reportRepo.save(report);
 

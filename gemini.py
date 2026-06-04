@@ -65,13 +65,13 @@ def analyze():
     current_price = prices[-1]           # 最新一筆交易日收盤價，即為當前實時市價
 
     # 💡 修正 1：先給預設值，防止 NameError
-    real_score = 50
+    real_score = 0
     try:
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}")
         java_data = java_res.json()
         real_score = java_data.get("averageSentimentScore")
         if not real_score:
-            real_score = 50 # 拿不到才用 50
+            real_score = 0 # 拿不到才用 50
     except Exception as e:
         print(f"⚠️ 無法取得資料庫現有分數: {e}")
 
@@ -103,9 +103,10 @@ def sync_news():
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}")
         if java_res.status_code == 200:
             java_data = java_res.json()
-            # 如果已有情緒分數且有總評，代表今日已完成
-            if java_data.get("averageSentimentScore") and java_data.get("overallAiSummary"):
-                print(f"🎯 {code} 今日已有分析報告，跳過爬蟲。")
+            # 💡 方案 B 關鍵邏輯：只有當報告存在且類型為 'DEEP_AI' 時，才跳過爬蟲
+            report_type = java_data.get("reportType")
+            if report_type == "DEEP_AI":
+                print(f"🎯 {code} 今日已有深度分析報告，跳過爬蟲。")
                 avg_score = java_data.get("averageSentimentScore")
                 summary_text = java_data.get("overallAiSummary")
                 
@@ -116,10 +117,12 @@ def sync_news():
                 }
                 return jsonify({
                     "status": "completed", 
-                    "message": "今日報告已存在，直接載入快取數據",
+                    "message": "今日深度報告已存在，直接載入快取數據",
                     "avg_sentiment": avg_score,
                     "ai_summary": summary_text
                 })
+            else:
+                print(f"📝 {code} 目前僅有模板報告 (Type: {report_type})，準備執行深度 AI 分析...")
     except Exception as e:
         print(f"⚠️ 檢查 Java 報告失敗: {e}")
 
