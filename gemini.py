@@ -171,12 +171,16 @@ def sync_news():
     def background_sync(stock_id):
         print(f"📡 [Background] 開始處理 {stock_id} 的新聞同步流程...")
         try:
+            # 💡 新增：從快取中取得股票名稱
+            stock_name = stock_cache.get(stock_id, {}).get('name', '未知股票')
+
             analyzed_data = run_full_news_pipeline(stock_id)
             if not analyzed_data:
                 news_tasks[stock_id] = {"status": "error", "message": "未能獲取新聞資料"}
                 return
             
-            send_news_to_springboot(stock_id, analyzed_data)
+            # 傳遞股票名稱
+            send_news_to_springboot(stock_id, stock_name, analyzed_data)
 
             scores = [item.get('sentiment_result', {}).get('Composite_Score', 50) for item in analyzed_data]
             avg_score = round(sum(scores) / len(scores), 2)
@@ -205,7 +209,8 @@ def sync_news():
             if stock_id in stock_cache:
                 stock_cache[stock_id]['sentiment_score'] = avg_score
 
-            send_report_to_springboot(stock_id, avg_score, gemini_summary)
+            # 傳遞股票名稱
+            send_report_to_springboot(stock_id, stock_name, avg_score, gemini_summary)
             
             news_tasks[stock_id] = {
                 "status": "completed",

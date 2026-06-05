@@ -1,7 +1,7 @@
 import requests
 from datetime import datetime
 
-def send_news_to_springboot(stock_id, news_list):
+def send_news_to_springboot(stock_id, stock_name="未知股票", news_list=None):
     """接收爬蟲資料，補齊模擬的 AI 欄位後，發送給 Spring Boot"""
     
     api_url = "http://localhost:8080/api/ingest/news"
@@ -10,7 +10,7 @@ def send_news_to_springboot(stock_id, news_list):
         print("沒有資料可以發送！")
         return
     
-    print(f"\n準備將{len(news_list)}筆新聞發送至 Spring Boot (Stock: {stock_id})...")
+    print(f"\n準備將 {len(news_list)} 筆新聞發送至 Spring Boot (Stock: {stock_name} [{stock_id}])...")
     
     for index, item in enumerate(news_list):
         # 1. 從爬蟲字典抓取已有資料 (這裡用 .get() 防呆，萬一 key 不存在也不會當機)
@@ -30,6 +30,7 @@ def send_news_to_springboot(stock_id, news_list):
         # 2. 組合 Payload，加入未完工的 AI 模擬資料
         payload = {
             "stockId": stock_id,
+            "stockName": stock_name, # 💡 新增：傳遞正確股票名稱
             "title": title,
             "contentUrl": url,
             "publishDate": java_date,
@@ -49,7 +50,7 @@ def send_news_to_springboot(stock_id, news_list):
             print("\n⚠️ 連線失敗！請確認你的 Spring Boot 伺服器 (8080 port) 正在執行中。")
             break
 
-def send_report_to_springboot(stock_id, avg_score, gemini_summary):
+def send_report_to_springboot(stock_id, stock_name="未知股票", avg_score=0.0, gemini_summary=""):
     """將計算好的平均分數與 Gemini 總結發送給 Spring Boot"""
     api_url = "http://localhost:8080/api/ingest/report"
     # 抓取今天日期，格式為 YYYY-MM-DD
@@ -57,13 +58,14 @@ def send_report_to_springboot(stock_id, avg_score, gemini_summary):
 
     payload = {
         "stockId": str(stock_id),
+        "stockName": stock_name, # 💡 新增：傳遞正確股票名稱
         "analysisDate": today_str,
         "avgSentiment": float(avg_score),
         "overallSummary": gemini_summary,
         "reportType": "DEEP_AI" # 標記為深度分析
     }
 
-    print(f"\n準備將 {stock_id} 的總評報告發送至 Spring Boot...")
+    print(f"\n準備將 {stock_name} ({stock_id}) 的總評報告發送至 Spring Boot...")
 
     try:
         response = requests.post(api_url, json=payload)

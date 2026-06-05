@@ -117,5 +117,5 @@ if __name__ == "__main__":
     if stock_input:
         data = run_full_news_pipeline(stock_input)
         if data:
-            # 手動執行時，順便發送到 Spring Boot 驗證
-            send_news_to_springboot(stock_input, data)
+            # 手動執行時，順便發送到 Spring Boot 驗證 (測試時名稱代入代號)
+            send_news_to_springboot(stock_input, f"Manual_Test_{stock_input}", data)

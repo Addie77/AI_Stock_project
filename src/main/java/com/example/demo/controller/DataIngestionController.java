@@ -35,16 +35,24 @@ public class DataIngestionController {
         }
         // 1. 從 Python 傳來的 JSON 中取出股票代號
         String stockId = (String) payload.get("stockId");
-        // 🌟 自動註冊機制：檢查資料庫有沒有這檔股票
+        // 🌟 自動註冊與名稱修正機制
         Stock stock = stockRepo.findById(stockId).orElse(null);
+        String stockNameFromPython = (String) payload.getOrDefault("stockName", "未知股票");
+
         if(stock == null){
-            // 如果沒有，就自動幫它建檔！
+            // 情況 A：資料庫完全沒這檔股票 -> 直接建檔
             stock = new Stock();
             stock.setStockId(stockId);
-            stock.setStockName("自動新增股票");   // 先給預設名稱
+            stock.setStockName(stockNameFromPython);
             stock.setUpdateTime(LocalDateTime.now());
-            stockRepo.save(stock);  // 存進 stock 表
-            System.out.println("⚠️ 偵測到新股票，已自動註冊代號：" + stockId);
+            stockRepo.save(stock);
+            System.out.println("📝 已自動註冊新股票：" + stockNameFromPython + " (" + stockId + ")");
+        } else if ("未知股票".equals(stock.getStockName()) || "自動新增股票".equals(stock.getStockName())) {
+            // 情況 B：股票已存在，但名稱是舊的佔位符 -> 趁機修正它！
+            stock.setStockName(stockNameFromPython);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("🔄 已修正股票名稱：" + stockNameFromPython + " (" + stockId + ")");
         }
 
         // 3. 建立新聞實體，把 Python 傳來的資料塞進去
@@ -69,10 +77,22 @@ public class DataIngestionController {
     public String receiveAnalysisReport(@RequestBody Map<String, Object> payload){
 
         String stockId = (String) payload.get("stockId");
-        // 1. 檢查股票是否存在
+        // 🌟 自動註冊與名稱修正機制
         Stock stock = stockRepo.findById(stockId).orElse(null);
-        if (stock == null) {
-            return "錯誤：找不到股票代號 " + stockId + "，無法儲存報告。";
+        String stockNameFromPython = (String) payload.getOrDefault("stockName", "未知股票");
+
+        if(stock == null){
+            stock = new Stock();
+            stock.setStockId(stockId);
+            stock.setStockName(stockNameFromPython);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("📝 已自動註冊新股票(由報告觸發)：" + stockNameFromPython + " (" + stockId + ")");
+        } else if ("未知股票".equals(stock.getStockName()) || "自動新增股票".equals(stock.getStockName())) {
+            stock.setStockName(stockNameFromPython);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("🔄 已修正股票名稱(由報告觸發)：" + stockNameFromPython + " (" + stockId + ")");
         }
 
         // 2. 解析日期 (Python 傳來的是 YYYY-MM-DD)
