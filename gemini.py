@@ -99,13 +99,14 @@ def analyze():
 
     current_price = prices[-1]           
 
-    # 💡 智慧防禦：讀取 Spring Boot 資料庫分數，預設回補 50 分防止 NameError
-    real_score = 50
+    # 💡 智慧防禦：讀取 Spring Boot 資料庫分數，預設回補 0 分
+    real_score = 0
     try:
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
         if java_res.status_code == 200:
             java_data = java_res.json()
-            real_score = java_data.get("averageSentimentScore", 50)
+            # 優先從 Java 獲取分數，若無則預設為 0
+            real_score = java_data.get("averageSentimentScore", 0)
     except Exception as e:
         print(f"⚠️ 無法取得 Java 資料庫現有分數 (Spring Boot 可能未啟動): {e}")
 
@@ -181,10 +182,22 @@ def sync_news():
             avg_score = round(sum(scores) / len(scores), 2)
 
             news_text = "\n".join([f"新聞: {n['title']}\n內容: {n['text']}" for n in analyzed_data[:10]])
+            
+            # 💡 方案 B 擴充：根據分數決定情緒標籤，並強迫 Gemini 加入總評開頭
+            if avg_score >= 80:
+                tag = "【極度樂觀】"
+            elif avg_score >= 60:
+                tag = "【偏向樂觀】"
+            elif avg_score >= 40:
+                tag = "【中立觀望】"
+            else:
+                tag = "【警訊注意】"
+
             prompt = (
-                f"你是一名專業財經分析師。股票 {stock_id} 的最新新聞平均情緒分數為{avg_score}。\n"
+                f"你是一名專業財經分析師。股票 {stock_id} 的最新新聞平均情緒分數為 {avg_score}，市場情緒等級為 {tag}。\n"
                 f"以下是新聞內容摘要：\n{news_text}\n\n"
-                f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。"
+                f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。\n"
+                f"【注意】請務必在總評的最開頭加上標籤「{tag}」。"
             )
             response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
             gemini_summary = response.text.strip()

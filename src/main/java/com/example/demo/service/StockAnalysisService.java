@@ -80,19 +80,10 @@ public class StockAnalysisService {
             }
             
             // 四捨五入到小數點後兩位
-            double finalAvgScore = Math.round(avgScore * 100.0) / 100.0;
+            double finalAvgScore = 0.0; // 預設為 0，表示尚未進行深度分析
 
             // 根據平均分生成總評文字
-            String totalAiSummary;
-            if (finalAvgScore >= 80) {
-                totalAiSummary = "【極度樂觀】近期新聞情緒極佳，看好短期表現。";
-            } else if (finalAvgScore >= 60) {
-                totalAiSummary = "【偏向樂觀】新聞多為正面，建議持續關注。";
-            } else if (finalAvgScore >= 40) {
-                totalAiSummary = "【中立觀望】近期新聞多空交雜，市場情緒不明朗。";
-            } else {
-                totalAiSummary = "【警訊注意】近期新聞情緒偏低，需留意潛在利空。";
-            }
+            String totalAiSummary = "【尚未分析】目前僅有基礎數據，請點擊下方按鈕以啟動 Gemini 深度分析報告。";
 
             // 🌟 將算好的結果打包成新報告，存進資料庫，下次查詢就能直接走情況 A！
             StockAnalysisReport newReport = new StockAnalysisReport();
@@ -100,13 +91,13 @@ public class StockAnalysisService {
             newReport.setAnalysisDate(today);
             newReport.setAvgSentiment(finalAvgScore);
             newReport.setOverallSummary(totalAiSummary);
-            newReport.setReportType("TEMPLATE"); // 明確標記為模板
+            newReport.setReportType("TEMPLATE"); // 明標記為模板
             reportRepo.save(newReport); // 存檔完成
 
             // 放進準備回傳給網頁的箱子裡
             reportBox.put("averageSentimentScore", finalAvgScore);
             reportBox.put("overallAiSummary", totalAiSummary);
-            reportBox.put("reportType", "TEMPLATE"); // 加入這行
+            reportBox.put("reportType", "TEMPLATE"); 
         }
 
         // 3. 補上其他原本就該回傳的資料（歷史股價與機器學習預測）
