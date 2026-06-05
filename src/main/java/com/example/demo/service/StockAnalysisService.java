@@ -70,17 +70,8 @@ public class StockAnalysisService {
             // ❌ 情況 B：今天還沒算過，啟動分析邏輯並存入資料庫
             System.out.println("🤖 今日無紀錄，開始計算平均分與總評...");
 
-            // 計算平均分：直接重複利用上面已經撈好的 recentNews 變數，不用再查一次資料庫！
-            double avgScore = 0.0;
-            if (!recentNews.isEmpty()) {
-                avgScore = recentNews.stream()
-                        .mapToInt(NewsSentiment::getSentimentScore)
-                        .average()
-                        .orElse(0.0);
-            }
-            
-            // 四捨五入到小數點後兩位
-            double finalAvgScore = 0.0; // 預設為 0，表示尚未進行深度分析
+            // 預設為 0，表示尚未進行深度分析
+            double finalAvgScore = 0.0; 
 
             // 根據平均分生成總評文字
             String totalAiSummary = "【尚未分析】目前僅有基礎數據，請點擊下方按鈕以啟動 Gemini 深度分析報告。";
