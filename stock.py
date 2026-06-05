@@ -55,19 +55,21 @@ def get_stock_historical_data(code):
     if not is_listed:
         try:
             for date_str in months_to_fetch:
+                # 櫃買中心新版 API 格式需求，日期為 YYYY/MM/01，參數為 code
                 dt = datetime.datetime.strptime(date_str, "%Y%m01")
-                tw_year = dt.year - 1911
-                tpex_date_str = f"{tw_year}/{dt.strftime('%m')}"
+                tpex_date_str = dt.strftime("%Y/%m/01")
                 
-                tpex_url = f"https://www.tpex.org.tw/web/stock/aftertrading/daily_trading_info/stk_quote_result.php?l=zh-tw&d={tpex_date_str}&stk_no={code}"
+                tpex_url = f"https://www.tpex.org.tw/www/zh-tw/afterTrading/tradingStock?response=json&date={tpex_date_str}&code={code}"
                 res = requests.get(tpex_url, verify=False, timeout=10)
                 data = res.json()
                 
-                if 'aaData' in data and data['aaData']:
+                # 新版格式資料在 tables[0]['data']
+                if 'tables' in data and data['tables'] and len(data['tables']) > 0:
                     market_type = "上櫃"
-                    stock_name = data.get('stkName', '未知上櫃')
-                    for row in data['aaData']:
-                        # row[0]: 日期, row[1]: 成交股數 (真實交易量), row[6]: 收盤價
+                    stock_name = data.get('name', '未知上櫃')
+                    table_data = data['tables'][0].get('data', [])
+                    for row in table_data:
+                        # row[0]: 日期 (例 115/05/02), row[6]: 收盤價
                         dates_list.append(row[0].strip())
                         volumes_list.append(row[1].strip()) # 💡 擷取真實成交量
                         prices_list.append(row[6].strip())

@@ -59,7 +59,8 @@ def send_report_to_springboot(stock_id, avg_score, gemini_summary):
         "stockId": str(stock_id),
         "analysisDate": today_str,
         "avgSentiment": float(avg_score),
-        "overallSummary": gemini_summary
+        "overallSummary": gemini_summary,
+        "reportType": "DEEP_AI" # 標記為深度分析
     }
 
     print(f"\n準備將 {stock_id} 的總評報告發送至 Spring Boot...")

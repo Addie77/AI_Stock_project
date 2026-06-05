@@ -64,6 +64,7 @@ public class StockAnalysisService {
             StockAnalysisReport todayReport = todayReportOpt.get();
             reportBox.put("averageSentimentScore", todayReport.getAvgSentiment());
             reportBox.put("overallAiSummary", todayReport.getOverallSummary());
+            reportBox.put("reportType", todayReport.getReportType()); // 加入這行
             System.out.println("⚡ 讀取快取：使用今日已生成的分析報告！");
         } else {
             // ❌ 情況 B：今天還沒算過，啟動分析邏輯並存入資料庫
@@ -99,11 +100,13 @@ public class StockAnalysisService {
             newReport.setAnalysisDate(today);
             newReport.setAvgSentiment(finalAvgScore);
             newReport.setOverallSummary(totalAiSummary);
+            newReport.setReportType("TEMPLATE"); // 明確標記為模板
             reportRepo.save(newReport); // 存檔完成
 
             // 放進準備回傳給網頁的箱子裡
             reportBox.put("averageSentimentScore", finalAvgScore);
             reportBox.put("overallAiSummary", totalAiSummary);
+            reportBox.put("reportType", "TEMPLATE"); // 加入這行
         }
 
         // 3. 補上其他原本就該回傳的資料（歷史股價與機器學習預測）

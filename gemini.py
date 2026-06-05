@@ -13,7 +13,7 @@ from stock import get_stock_historical_data
 from news_Scraping.news import run_full_news_pipeline
 from api_sender import send_news_to_springboot, send_report_to_springboot
 
-# --- 1. 初始化環境與核心組件 ---
+# --- 1. 初始化環境與核心組件 (Initialization & Setup) ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
@@ -22,6 +22,7 @@ CORS(app)
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
+# 記憶體快取防禦機制
 stock_cache = {}
 ai_cache = {}
 news_tasks = {}
@@ -74,19 +75,16 @@ def analyze():
         except (ValueError, TypeError):
             continue
             
-    # 如果整支股票都抓不到合法數字，預設給 0 (極端防禦)
     if last_valid_price is None:
         last_valid_price = 0.0
 
     # 逐日清洗價格
     for p in raw_prices:
         try:
-            # 移除千分位逗號，試圖轉成 float
             clean_p = float(str(p).replace(',', '').strip())
             prices.append(clean_p)
-            last_valid_price = clean_p # 更新最新合法價格
+            last_valid_price = clean_p 
         except (ValueError, TypeError):
-            # 💡 發現非數字符號 (如 '--')！自動用前一天的真實價格補齊 (Forward Fill)
             print(f"⚠️ 偵測到個股 {code} 歷史收盤價含有異常字串 '{p}'，已啟動 Forward Fill 機制補齊。")
             prices.append(last_valid_price)
 
@@ -101,7 +99,7 @@ def analyze():
 
     current_price = prices[-1]           
 
-    # 讀取 Spring Boot 資料庫分數
+    # 💡 智慧防禦：讀取 Spring Boot 資料庫分數，預設回補 50 分防止 NameError
     real_score = 50
     try:
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
@@ -111,7 +109,7 @@ def analyze():
     except Exception as e:
         print(f"⚠️ 無法取得 Java 資料庫現有分數 (Spring Boot 可能未啟動): {e}")
 
-    # 封裝標準 JSON 回應包（此時傳出去的 prices 已經 100% 全是純數字）
+    # 封裝標準 JSON 回應包
     result = {
         "name": name,
         "current_price": current_price,
@@ -124,6 +122,9 @@ def analyze():
     stock_cache[code] = result
     return jsonify(result)
 
+# ============================================================================
+# --- 3. 新聞同步背景路由 (兩階段智慧載入) ---
+# ============================================================================
 @app.route('/api/sync_news', methods=['GET'])
 def sync_news():
     code = request.args.get('code', '').strip().zfill(4)
@@ -137,8 +138,11 @@ def sync_news():
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
         if java_res.status_code == 200:
             java_data = java_res.json()
-            if java_data.get("averageSentimentScore") and java_data.get("overallAiSummary"):
-                print(f"🎯 {code} 今日已有分析報告，跳過爬蟲。")
+            
+            # 💡 方案 B 關鍵邏輯：只有當報告存在且類型為 'DEEP_AI' 時，才跳過爬蟲
+            report_type = java_data.get("reportType")
+            if java_data.get("averageSentimentScore") and java_data.get("overallAiSummary") and report_type == "DEEP_AI":
+                print(f"🎯 {code} 今日已有深度分析報告，跳過爬蟲。")
                 avg_score = java_data.get("averageSentimentScore")
                 summary_text = java_data.get("overallAiSummary")
                 
@@ -149,10 +153,12 @@ def sync_news():
                 }
                 return jsonify({
                     "status": "completed", 
-                    "message": "今日報告已存在，直接載入快取數據",
+                    "message": "今日深度報告已存在，直接載入快取數據",
                     "avg_sentiment": avg_score,
                     "ai_summary": summary_text
                 })
+            else:
+                print(f"📝 {code} 目前僅有模板報告或資料未完全 (Type: {report_type})，準備執行深度 AI 分析...")
     except Exception as e:
         print(f"⚠️ 檢查 Java 報告失敗: {e}")
 
@@ -208,8 +214,9 @@ def check_status():
     status_info = news_tasks.get(code, {"status": "not_found"})
     return jsonify(status_info)
 
+
 # ============================================================================
-# --- 3. API 路由 2：調用雲端大語言模型產生形態報告 ---
+# --- 4. API 路由 2：調用雲端大語言模型產生技術面形態報告 ---
 # ============================================================================
 @app.route('/api/generate_ai', methods=['GET'])
 def generate_ai():
@@ -268,5 +275,4 @@ def generate_ai():
         return jsonify({"error": "雲端 AI 服務暫時無法連線，報告生成失敗。請檢查您的 API 金鑰狀態或網路環境。"}), 502
 
 if __name__ == '__main__':
-    # 💡 啟用 threaded=True 確保 Flask 能流暢處理多個並行連線與前端輪詢
     app.run(debug=True, port=5000, threaded=True)
