@@ -4,9 +4,27 @@ from flask_cors import CORS
 from google import genai
 from google.genai import types
 from dotenv import load_dotenv
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception
 import json
 import requests
 import threading
+
+# 💡 輔助函式：處理 Gemini API 503 錯誤與重試機制
+def is_503_error(exception):
+    """判斷是否為 503 暫時性過載錯誤"""
+    return "503" in str(exception) or "UNAVAILABLE" in str(exception)
+
+@retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=4, min=4, max=60),
+    retry=retry_if_exception(is_503_error),
+    before_sleep=lambda retry_state: print(f"⚠️ Gemini API 忙碌中 (503)，正在進行第 {retry_state.attempt_number} 次重試...")
+)
+def gemini_generate_with_retry(client, model, contents, config=None):
+    """封裝帶有重試機制的內容生成函式"""
+    if config:
+        return client.models.generate_content(model=model, contents=contents, config=config)
+    return client.models.generate_content(model=model, contents=contents)
 
 # 💡 模組化解耦匯入
 from stock import get_stock_historical_data
@@ -203,7 +221,8 @@ def sync_news():
                 f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。\n"
                 f"【注意】請務必在總評的最開頭加上標籤「{tag}」。"
             )
-            response = client.models.generate_content(model="gemini-2.5-flash", contents=prompt)
+            # 使用重試機制呼叫 Gemini
+            response = gemini_generate_with_retry(client, model="gemini-2.5-flash", contents=prompt)
             gemini_summary = response.text.strip()
 
             if stock_id in stock_cache:
@@ -269,7 +288,9 @@ def generate_ai():
     )
 
     try:
-        response = client.models.generate_content(
+        # 使用重試機制呼叫 Gemini
+        response = gemini_generate_with_retry(
+            client,
             model="gemini-2.5-flash",
             contents=prompt,
             config=types.GenerateContentConfig(response_mime_type="application/json")
