@@ -297,7 +297,7 @@ def generate_ai():
             config=types.GenerateContentConfig(response_mime_type="application/json")
         )
         raw_text = response.text.replace("```json", "").replace("```", "").strip()
-        ai_data = json.loads(raw_text)
+        ai_data = json.loads(raw_text, strict=False)
         result = {
             "analysis_summary": ai_data.get("analysis_summary"),
             "advice": ai_data.get("advice")
