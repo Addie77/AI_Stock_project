@@ -222,6 +222,7 @@ def sync_news():
                 f"【注意】請務必在總評的最開頭加上標籤「{tag}」。"
             )
             # 使用重試機制呼叫 Gemini
+            # response = gemini_generate_with_retry(client, model="gemini-3-pro-preview", contents=prompt, task_label="新聞總評")  #換模型3，把原本的註解掉
             response = gemini_generate_with_retry(client, model="gemini-2.5-flash", contents=prompt, task_label="新聞總評")
             gemini_summary = response.text.strip()
 
@@ -291,6 +292,7 @@ def generate_ai():
         # 使用重試機制呼叫 Gemini
         response = gemini_generate_with_retry(
             client,
+            # model="gemini-3-pro-preview", #換模型3，把原本的註解掉
             model="gemini-2.5-flash",
             contents=prompt,
             task_label="技術分析報告",
