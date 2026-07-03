@@ -18,6 +18,8 @@
             <div class="logo">StockAI</div>
             <ul class="nav-links">
                 <li class="active" id="navMarketOverview">市場總覽</li>
+                <!-- 新增：自選頁面導覽按鈕 -->
+                <li id="navWatchlist">自選股</li>
                 <li id="navAiReport">AI 報告</li>
             </ul>
         </nav>
@@ -30,35 +32,50 @@
                 <div class="status">系統：<span class="online">ONLINE</span></div>
             </header>
 
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <h3>市場情感分數</h3>
-                    <div class="sentiment-bar">
-                        <div class="sentiment-fill" id="sentFill"></div>
+            <!-- 包裹原本市場總覽與 AI 報告的區塊，方便切換頁面時整體隱藏 -->
+            <div id="mainDashboardViews" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <h3>市場情感分數</h3>
+                        <div class="sentiment-bar">
+                            <div class="sentiment-fill" id="sentFill"></div>
+                        </div>
+                        <div id="sentVal" class="stat-value">0 / 100</div>
+                        <p class="stat-desc">基於新聞與本地 FinBERT 語意分析</p>
                     </div>
-                    <div id="sentVal" class="stat-value">0 / 100</div>
-                    <p class="stat-desc">基於新聞與本地 FinBERT 語意分析</p>
                 </div>
+
+                <section class="chart-section">
+                    <div class="chart-card">
+                        <h3 id="chartTitle">過去 3 個月價格趨勢圖</h3>
+                        <div class="canvas-wrapper">
+                            <canvas id="stockChart"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="ai-report-section" id="aiReportSection">
+                    <div class="news-card">
+                        <div class="card-header-btn">
+                            <h3>AI 智能建議報告</h3>
+                            <button id="generateAiBtn" class="primary-btn">生成 AI 智能建議報告</button>
+                        </div>
+                        <div class="ai-content">
+                            <p id="aiSummary">請點擊上方按鈕，以生成基於 3 個月歷史數據的 AI 技術面分析建議。</p>
+                            <div id="aiAdvice" class="advice-box" style="display: none;"></div>
+                        </div>
+                    </div>
+                </section>
             </div>
 
-            <section class="chart-section">
-                <div class="chart-card">
-                    <h3 id="chartTitle">過去 3 個月價格趨勢圖</h3>
-                    <div class="canvas-wrapper">
-                        <canvas id="stockChart"></canvas>
-                    </div>
-                </div>
-            </section>
-
-            <section class="ai-report-section" id="aiReportSection">
-                <div class="news-card">
-                    <div class="card-header-btn">
-                        <h3>AI 智能建議報告</h3>
-                        <button id="generateAiBtn" class="primary-btn">生成 AI 智能建議報告</button>
-                    </div>
-                    <div class="ai-content">
-                        <p id="aiSummary">請點擊上方按鈕，以生成基於 3 個月歷史數據的 AI 技術面分析建議。</p>
-                        <div id="aiAdvice" class="advice-box" style="display: none;"></div>
+            <!-- 新增：自選頁面獨立區塊 (預設隱藏) -->
+            <section class="watchlist-section" id="watchlistSection" style="display: none;">
+                <div class="watchlist-card">
+                    <h3>我的自選股清單</h3>
+                    <p class="stat-desc">這裡可以展示您追蹤的股票自選清單項目</p>
+                    <div style="margin-top: 20px; color: #94a3b8;">
+                        <!-- 您可以在此處自由擴充您的自選股表格或內容 -->
+                        暫無自選股資料，可在後續擴充此區塊功能。
                     </div>
                 </div>
             </section>

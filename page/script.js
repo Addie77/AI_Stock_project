@@ -21,6 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') {
             const inputCode = e.target.value.trim();
             if (inputCode) {
+                // 如果在自選股頁面進行搜尋，自動切回市場總覽以利觀看圖表
+                showDashboardView();
                 fetchStockData(inputCode);
             }
         }
@@ -41,6 +43,9 @@ document.addEventListener('DOMContentLoaded', () => {
      * 💡 互動功能：點擊左側「AI 報告」選單自動平滑跳轉至對應區塊
      */
     document.getElementById('navAiReport').addEventListener('click', () => {
+        // 確保儀表板主內容是顯示的
+        showDashboardView();
+
         const aiSection = document.getElementById('aiReportSection');
         if (aiSection) {
             // 使用原生 Web API 進行平滑（Smooth）垂直滾動，並對齊區塊頂端
@@ -49,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // 動態切換側邊欄的 CSS 高亮樣式 (Active Class Tab)
         document.getElementById('navMarketOverview').classList.remove('active');
+        document.getElementById('navWatchlist').classList.remove('active'); // 新增：移除自選股高亮
         document.getElementById('navAiReport').classList.add('active');
     });
 
@@ -56,13 +62,40 @@ document.addEventListener('DOMContentLoaded', () => {
      * 💡 互動功能：點擊左側「市場總覽」回到網頁最頂端
      */
     document.getElementById('navMarketOverview').addEventListener('click', () => {
+        // 確保儀表板主內容是顯示的
+        showDashboardView();
+
         // 平滑滾動回瀏覽器視窗最頂部 (Y 軸 0 的位置)
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
         document.getElementById('navAiReport').classList.remove('active');
+        document.getElementById('navWatchlist').classList.remove('active'); // 新增：移除自選股高亮
         document.getElementById('navMarketOverview').classList.add('active');
     });
+
+    /**
+     * 💡 新增互動功能：點擊左側「自選股」切換至自選頁面
+     */
+    document.getElementById('navWatchlist').addEventListener('click', () => {
+        // 隱藏原本的市場總覽與 AI 報告，顯示自選股區塊
+        document.getElementById('mainDashboardViews').style.display = 'none';
+        document.getElementById('watchlistSection').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 切換側邊欄高亮
+        document.getElementById('navMarketOverview').classList.remove('active');
+        document.getElementById('navAiReport').classList.remove('active');
+        document.getElementById('navWatchlist').classList.add('active');
+    });
 });
+
+/**
+ * 💡 新增：輔助函式，切換回主儀表板畫面
+ */
+function showDashboardView() {
+    document.getElementById('mainDashboardViews').style.display = 'flex';
+    document.getElementById('watchlistSection').style.display = 'none';
+}
 
 /**
  * 💡 新增：初始化儀表板待命狀態 UI 表現
@@ -119,7 +152,7 @@ async function fetchStockData(code) {
         renderChart(data.history_dates, data.history_prices, data.history_volumes);
         
     } catch (error) {
-        // 錯誤控制安全機制：如遇網路斷線或無此股票，如實呈現在網頁畫面上並恢復初始 UI
+        // 錯誤控制安全機制：如遇網路斷線或無此股票，如實呈年在網頁畫面上並恢復初始 UI
         console.error("Fetch Error:", error);
         initDashboardState();
         document.getElementById('aiSummary').innerText = `❌ 連線失敗或無此股票資料：${error.message}`;
@@ -225,11 +258,6 @@ async function fetchAiReport(code) {
     }
 }
 
-/**
- * ============================================================================
- * 數據視覺化核心：Chart.js 長週期雙 Y 軸混合圖表渲染引擎
- * ============================================================================
- */
 /**
  * ============================================================================
  * 數據視覺化核心：Chart.js 長週期雙 Y 軸混合圖表渲染引擎 (張數換算版)
