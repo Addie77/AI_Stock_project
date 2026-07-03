@@ -4,7 +4,7 @@ spring.application.name=demo
 # 1. MySQL ???????
 # ===============================
 # ???????? stock_analysis ????????? utf8mb4 ?????
-spring.datasource.url=jdbc:mysql://localhost:3306/stock_analysis?serverTimezone=Asia/Taipei&useSSL=false&characterEncoding=UTF-8
+spring.datasource.url=jdbc:mysql://localhost:3306/stock_analysis?serverTimezone=Asia/Taipei&useSSL=false&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
 
 # ?? MySQL ?? (????? root)
 spring.datasource.username=YOUR_MYSQL_USERNAME_HERE
