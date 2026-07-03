@@ -82,3 +82,12 @@ CREATE TABLE `stock_analysis_report` (
   CONSTRAINT `stock_analysis_report_ibfk_1` FOREIGN KEY (`stock_id`) REFERENCES `stock` (`stock_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE favorite_stocks (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    stock_id VARCHAR(255) NOT NULL,
+    added_at DATETIME NOT NULL,
+    memo VARCHAR(255),
+    target_price DOUBLE,
+    FOREIGN KEY (stock_id) REFERENCES stock(stock_id)
+);
+
