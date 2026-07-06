@@ -36,7 +36,11 @@
             <div id="mainDashboardViews" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <h3>市場情感分數</h3>
+                        <!-- 💡 核心修改：優化愛心樣式，讓它變成大顆（1.6em）且純白色的空心愛心 -->
+                        <h3 style="display: flex; align-items: center; justify-content: space-between;">
+                            市場情感分數 
+                            <span id="addWatchlistBtn" style="cursor: pointer; color: transparent; -webkit-text-stroke: 2px #ffffff; font-size: 1.6em; transition: transform 0.1s; user-select: none;" title="加入自選股">❤</span>
+                        </h3>
                         <div class="sentiment-bar">
                             <div class="sentiment-fill" id="sentFill"></div>
                         </div>
@@ -74,7 +78,7 @@
                     <h3>我的自選股清單</h3>
                     <p class="stat-desc">這裡可以展示您追蹤的股票自選清單項目</p>
                     <div style="margin-top: 20px; color: #94a3b8;">
-                        <!-- 您可以在此處自由擴充您的自選股表格或內容 -->
+                        <!-- 您可以在此處自由擴充您的自選股表格 or 內容 -->
                         暫無自選股資料，可在後續擴充此區塊功能。
                     </div>
                 </div>
