@@ -56,11 +56,26 @@ public class FavoriteStockController {
             return ResponseEntity.badRequest().body(response);
         }
 
-        // 檢查股票是否存在於資料庫中
+        // 檢查股票是否存在於資料庫中，若無則自動註冊
         Optional<Stock> stockOpt = stockRepo.findById(stockId);
+        Stock stock;
         if (stockOpt.isEmpty()) {
-            response.put("error", "找不到此股票，請先確保該股票已註冊於系統中 (stockId: " + stockId + ")");
-            return ResponseEntity.badRequest().body(response);
+            String stockName = (String) payload.getOrDefault("stockName", "自動新增股票");
+            stock = new Stock();
+            stock.setStockId(stockId);
+            stock.setStockName(stockName);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("📝 自選股觸發：已自動註冊新股票：" + stockName + " (" + stockId + ")");
+        } else {
+            stock = stockOpt.get();
+            String stockName = (String) payload.get("stockName");
+            if (stockName != null && !stockName.isEmpty() && 
+                ("未知股票".equals(stock.getStockName()) || "自動新增股票".equals(stock.getStockName()))) {
+                stock.setStockName(stockName);
+                stock.setUpdateTime(LocalDateTime.now());
+                stockRepo.save(stock);
+            }
         }
 
         // 檢查是否已經在自選清單中
@@ -71,7 +86,7 @@ public class FavoriteStockController {
         }
 
         FavoriteStock favorite = new FavoriteStock();
-        favorite.setStock(stockOpt.get());
+        favorite.setStock(stock);
         favorite.setAddedAt(LocalDateTime.now());
         favorite.setMemo(memo);
         favorite.setTargetPrice(targetPrice);

@@ -86,6 +86,70 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('navMarketOverview').classList.remove('active');
         document.getElementById('navAiReport').classList.remove('active');
         document.getElementById('navWatchlist').classList.add('active');
+
+        // 💡 載入自選股清單
+        if (typeof loadWatchlist === 'function') {
+            loadWatchlist();
+        }
+    });
+
+    // 監聽心型「加入自選股」按鈕的點擊事件
+    document.getElementById('addWatchlistBtn').addEventListener('click', async () => {
+        if (!currentStockCode) {
+            alert("請先搜尋股票代碼，再加入自選股。");
+            return;
+        }
+        
+        const displayNameText = document.getElementById('displayName').innerText;
+        let stockName = "未知股票";
+        if (displayNameText.includes('(')) {
+            stockName = displayNameText.split('(')[0].trim();
+        }
+
+        try {
+            const res = await fetch(`http://localhost:8080/api/favorites`);
+            if (!res.ok) throw new Error("無法連接自選股服務");
+            const favorites = await res.json();
+            const isFav = favorites.some(fav => fav.stock.stockId === currentStockCode);
+            
+            if (isFav) {
+                const delRes = await fetch(`http://localhost:8080/api/favorites/${currentStockCode}`, {
+                    method: 'DELETE'
+                });
+                const delData = await delRes.json();
+                if (delRes.ok && delData.success) {
+                    updateFavoriteIcon(false);
+                    if (document.getElementById('watchlistSection').style.display === 'block') {
+                        loadWatchlist();
+                    }
+                } else {
+                    alert("移除自選股失敗: " + (delData.error || "未知錯誤"));
+                }
+            } else {
+                const addRes = await fetch(`http://localhost:8080/api/favorites`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        stockId: currentStockCode,
+                        stockName: stockName
+                    })
+                });
+                const addData = await addRes.json();
+                if (addRes.ok && addData.success) {
+                    updateFavoriteIcon(true);
+                    if (document.getElementById('watchlistSection').style.display === 'block') {
+                        loadWatchlist();
+                    }
+                } else {
+                    alert("加入自選股失敗: " + (addData.error || "未知錯誤"));
+                }
+            }
+        } catch (e) {
+            console.error("操作自選股失敗:", e);
+            alert("操作失敗: " + e.message);
+        }
     });
 });
 
@@ -106,6 +170,11 @@ function initDashboardState() {
     document.getElementById('sentFill').style.width = '0%';
     document.getElementById('sentVal').innerText = "0 / 100";
     document.getElementById('aiSummary').innerText = "等待搜尋股票數據...";
+    
+    // 重設最愛心型圖示
+    if (typeof updateFavoriteIcon === 'function') {
+        updateFavoriteIcon(false);
+    }
     
     // 如果有殘留的舊圖表，將其銷毀以釋放資源
     if (stockChart) {
@@ -150,6 +219,11 @@ async function fetchStockData(code) {
         
         // 將後端回傳的歷史收盤價與交易量陣列同步傳入繪圖引擎
         renderChart(data.history_dates, data.history_prices, data.history_volumes);
+        
+        // 💡 檢查自選股狀態以更新心型按鈕
+        if (typeof checkFavoriteStatus === 'function') {
+            checkFavoriteStatus(code);
+        }
         
     } catch (error) {
         // 錯誤控制安全機制：如遇網路斷線或無此股票，如實呈年在網頁畫面上並恢復初始 UI
@@ -367,4 +441,229 @@ function renderChart(dates, prices, volumes) {
             }
         }
     });
+}
+
+/**
+ * ============================================================================
+ * 自選股功能模組 (Watchlist Feature Module)
+ * ============================================================================
+ */
+
+// 更新心型按鈕樣式
+function updateFavoriteIcon(isFavorite) {
+    const btn = document.getElementById('addWatchlistBtn');
+    if (!btn) return;
+    if (isFavorite) {
+        btn.style.color = '#ef4444';
+        btn.style.webkitTextStroke = '0px';
+        btn.title = '移除自選股';
+    } else {
+        btn.style.color = 'transparent';
+        btn.style.webkitTextStroke = '2px #ffffff';
+        btn.title = '加入自選股';
+    }
+}
+
+// 檢查當前股票是否在自選股清單中
+async function checkFavoriteStatus(code) {
+    try {
+        const res = await fetch(`http://localhost:8080/api/favorites`);
+        if (!res.ok) return;
+        const favorites = await res.json();
+        const isFav = favorites.some(fav => fav.stock.stockId === code);
+        updateFavoriteIcon(isFav);
+    } catch (e) {
+        console.error("無法取得自選股狀態:", e);
+    }
+}
+
+// 載入所有自選股資料
+async function loadWatchlist() {
+    const container = document.querySelector('.watchlist-card div');
+    if (container) {
+        container.innerHTML = `<div style="text-align: center; padding: 20px; color: #94a3b8;">載入自選股中...</div>`;
+    }
+    
+    try {
+        const res = await fetch(`http://localhost:8080/api/favorites`);
+        if (!res.ok) throw new Error("無法取得自選股資料");
+        const favorites = await res.json();
+        renderWatchlist(favorites);
+    } catch (e) {
+        console.error("載入自選股失敗:", e);
+        if (container) {
+            container.innerHTML = `<div style="text-align: center; padding: 20px; color: #f87171;">❌ 載入自選股失敗: ${e.message}</div>`;
+        }
+    }
+}
+
+// 渲染自選股表格
+function renderWatchlist(favorites) {
+    const container = document.querySelector('.watchlist-card div');
+    if (!container) return;
+
+    if (favorites.length === 0) {
+        container.innerHTML = `
+            <div style="margin-top: 20px; text-align: center; padding: 40px; color: #64748b;">
+                <span style="font-size: 3em; display: block; margin-bottom: 10px;">⭐</span>
+                暫無自選股資料，請先在上方搜尋股票並點擊 ❤ 加入自選。
+            </div>
+        `;
+        return;
+    }
+
+    let html = `
+        <table class="watchlist-table">
+            <thead>
+                <tr>
+                    <th>股票代碼</th>
+                    <th>股票名稱</th>
+                    <th>目標價 (TWD)</th>
+                    <th>備忘錄</th>
+                    <th>加入時間</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    favorites.forEach(fav => {
+        const addedDate = new Date(fav.addedAt).toLocaleString('zh-TW', { hour12: false });
+        const targetPriceDisplay = fav.targetPrice !== null && fav.targetPrice !== undefined ? fav.targetPrice : '--';
+        const memoDisplay = fav.memo ? fav.memo : '';
+        
+        html += `
+            <tr id="fav-row-${fav.stock.stockId}">
+                <td style="font-weight: 700; color: #38bdf8;">${fav.stock.stockId}</td>
+                <td>${fav.stock.stockName}</td>
+                <td class="target-price-cell">
+                    <span class="view-mode">${targetPriceDisplay}</span>
+                    <input type="number" step="0.1" class="edit-mode watchlist-input" value="${fav.targetPrice || ''}" style="display: none; width: 100px;">
+                </td>
+                <td class="memo-cell">
+                    <span class="view-mode">${memoDisplay}</span>
+                    <input type="text" class="edit-mode watchlist-input" value="${fav.memo || ''}" style="display: none; width: 180px;">
+                </td>
+                <td style="color: #64748b; font-size: 0.9em;">${addedDate}</td>
+                <td>
+                    <button class="action-btn btn-view" onclick="viewFavorite('${fav.stock.stockId}')">查看</button>
+                    <button class="action-btn btn-edit edit-btn" onclick="toggleEditRow('${fav.stock.stockId}')">編輯</button>
+                    <button class="action-btn save-btn" onclick="saveFavoriteRow('${fav.stock.stockId}')" style="display: none; background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3);">儲存</button>
+                    <button class="action-btn btn-delete delete-btn" onclick="deleteFavoriteRow('${fav.stock.stockId}')">刪除</button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+            </tbody>
+        </table>
+    `;
+
+    container.innerHTML = html;
+}
+
+// 切換至詳細儀表板檢視該股票
+function viewFavorite(stockId) {
+    showDashboardView();
+    document.getElementById('navWatchlist').classList.remove('active');
+    document.getElementById('navAiReport').classList.remove('active');
+    document.getElementById('navMarketOverview').classList.add('active');
+    
+    // 清空並重新載入搜尋與資料
+    document.getElementById('stockSearch').value = stockId;
+    fetchStockData(stockId);
+}
+
+// 切換特定行的編輯/檢視模式
+function toggleEditRow(stockId) {
+    const row = document.getElementById(`fav-row-${stockId}`);
+    if (!row) return;
+    
+    const viewElements = row.querySelectorAll('.view-mode');
+    const editElements = row.querySelectorAll('.edit-mode');
+    const editBtn = row.querySelector('.edit-btn');
+    const saveBtn = row.querySelector('.save-btn');
+    
+    viewElements.forEach(el => el.style.display = 'none');
+    editElements.forEach(el => el.style.display = 'inline-block');
+    
+    editBtn.style.display = 'none';
+    saveBtn.style.display = 'inline-block';
+}
+
+// 儲存編輯結果
+async function saveFavoriteRow(stockId) {
+    const row = document.getElementById(`fav-row-${stockId}`);
+    if (!row) return;
+    
+    const targetPriceInput = row.querySelector('.target-price-cell input').value;
+    const memoInput = row.querySelector('.memo-cell input').value;
+    
+    const targetPrice = targetPriceInput === '' ? null : parseFloat(targetPriceInput);
+    const memo = memoInput;
+
+    try {
+        const res = await fetch(`http://localhost:8080/api/favorites/${stockId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                memo: memo,
+                targetPrice: targetPrice
+            })
+        });
+        
+        if (!res.ok) throw new Error("更新失敗");
+        const data = await res.json();
+        
+        if (data.success) {
+            row.querySelector('.target-price-cell .view-mode').innerText = targetPrice !== null ? targetPrice : '--';
+            row.querySelector('.memo-cell .view-mode').innerText = memo;
+            
+            const viewElements = row.querySelectorAll('.view-mode');
+            const editElements = row.querySelectorAll('.edit-mode');
+            const editBtn = row.querySelector('.edit-btn');
+            const saveBtn = row.querySelector('.save-btn');
+            
+            viewElements.forEach(el => el.style.display = 'inline-block');
+            editElements.forEach(el => el.style.display = 'none');
+            
+            editBtn.style.display = 'inline-block';
+            saveBtn.style.display = 'none';
+        } else {
+            alert("更新失敗: " + (data.error || "未知錯誤"));
+        }
+    } catch (e) {
+        console.error("更新自選股失敗:", e);
+        alert("更新失敗: " + e.message);
+    }
+}
+
+// 刪除自選股紀錄
+async function deleteFavoriteRow(stockId) {
+    if (!confirm(`確定要將股票 ${stockId} 從自選清單中刪除嗎？`)) {
+        return;
+    }
+    
+    try {
+        const res = await fetch(`http://localhost:8080/api/favorites/${stockId}`, {
+            method: 'DELETE'
+        });
+        if (!res.ok) throw new Error("刪除失敗");
+        const data = await res.json();
+        
+        if (data.success) {
+            if (stockId === currentStockCode) {
+                updateFavoriteIcon(false);
+            }
+            loadWatchlist();
+        } else {
+            alert("刪除失敗: " + (data.error || "未知錯誤"));
+        }
+    } catch (e) {
+        console.error("刪除自選股失敗:", e);
+        alert("刪除失敗: " + e.message);
+    }
 }

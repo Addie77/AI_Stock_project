@@ -244,3 +244,89 @@ header {
     border-radius: 16px;
     border: 1px solid #334155;
 }
+
+/* 自選股表格樣式 */
+.watchlist-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    color: #e2e8f0;
+}
+
+.watchlist-table th, .watchlist-table td {
+    padding: 14px 16px;
+    text-align: left;
+    border-bottom: 1px solid #334155;
+}
+
+.watchlist-table th {
+    background-color: #0f172a;
+    color: #94a3b8;
+    font-weight: 600;
+    font-size: 0.9em;
+}
+
+.watchlist-table tr:hover {
+    background-color: rgba(255, 255, 255, 0.02);
+}
+
+/* 操作按鈕樣式 */
+.action-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    margin-right: 6px;
+    display: inline-block;
+}
+
+.btn-view {
+    background: rgba(56, 189, 248, 0.15);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.btn-view:hover {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.btn-edit {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.btn-edit:hover {
+    background: #fbbf24;
+    color: #0f172a;
+}
+
+.btn-delete {
+    background: rgba(248, 113, 113, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(248, 113, 113, 0.3);
+}
+
+.btn-delete:hover {
+    background: #f87171;
+    color: #0f172a;
+}
+
+/* 行內編輯輸入框 */
+.watchlist-input {
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 6px;
+    color: white;
+    padding: 6px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.watchlist-input:focus {
+    border-color: #38bdf8;
+}
