@@ -1,10 +1,24 @@
 import os
+import sys
 import json
 import requests
 import time
 import random
-from datetime import datetime, timedelta  # 🟢 新增：用來計算日期的模組
+from datetime import datetime, timedelta
 from selenium import webdriver
+
+# =====================================================================
+# 🟢 跨資料夾路徑設定：讓 Python 自動去隔壁的 sentiment_model 資料夾找模組
+# =====================================================================
+current_dir = os.path.dirname(os.path.abspath(__file__))
+parent_dir = os.path.dirname(current_dir)
+sentiment_model_path = os.path.join(parent_dir, "sentiment_model")
+
+if sentiment_model_path not in sys.path:
+    sys.path.append(sentiment_model_path)
+
+from sentiment_analyzer import SentimentAnalyzer
+
 
 def get_token_via_selenium():
     """步驟 1：啟動瀏覽器讓你登入，並自動擷取最新 Token (自動 Base64 解碼版)"""
@@ -72,10 +86,9 @@ def get_token_via_selenium():
         print("❌ 擷取失敗，可能是登入未完成，或網站儲存機制已改變。")
         return None
 
+
 def get_transcripts_list(query, headers):
-    """步驟 2：透過 API 取得搜尋列表 (🟢 已加入近一個月篩選條件)"""
-    
-    # 🟢 計算 30 天前的日期 (格式：YYYY-MM-DD)
+    """步驟 2：透過 API 取得搜尋列表 (限制近一個月內)"""
     thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     print(f"📅 篩選條件：只抓取 {thirty_days_ago} 之後的法說會...")
 
@@ -84,7 +97,7 @@ def get_transcripts_list(query, headers):
         'select': 'id,stock_name,stock_number,audio_date',
         'is_accessed': 'eq.true',
         'or': f'(stock_name.ilike.%{query}%,stock_number.ilike.%{query}%)',
-        'audio_date': f'gte.{thirty_days_ago}',  # 🟢 關鍵：要求後端只回傳大於等於該日期的資料
+        'audio_date': f'gte.{thirty_days_ago}',
         'order': 'audio_date.desc',
         'limit': '10'
     }
@@ -94,6 +107,7 @@ def get_transcripts_list(query, headers):
     else:
         print(f"❌ 搜尋列表 API 失敗，狀態碼：{res.status_code}")
         return []
+
 
 def get_transcript_detail(transcript_id, headers):
     """步驟 3：透過 API 獲取內文與 Memo"""
@@ -122,18 +136,28 @@ def get_transcript_detail(transcript_id, headers):
         print(f"❌ 發生例外異常：{e}")
         return None
 
-def save_memo_only(data, filepath):
-    """步驟 4：安全解析資料並寫入結構化 JSON 檔案"""
+
+def process_and_save_data(data, output_dir, base_title, analyzer):
+    """
+    步驟 4：直接在記憶體中清洗資料，並同時完成「原始摘要」與「情緒分析」的本地 JSON 備份儲存。
+    """
     content = data.get('content_parsed', {})
     memo_list = content.get('memo', [])
     
     if not memo_list:
-        print(f"⚠️ 該場法說會尚未產生 Memo 摘要，跳過儲存。")
+        print(f"⚠️ 該場法說會尚未產生 Memo 摘要，跳過本地存檔。")
         return False
 
     meta = data.get('metadata', {})
     
-    json_output = {
+    raw_output = {
+        "stock_name": meta.get('stock_name'),
+        "stock_number": meta.get('stock_number'),
+        "audio_date": meta.get('audio_date'),
+        "memos": []
+    }
+    
+    sentiment_output = {
         "stock_name": meta.get('stock_name'),
         "stock_number": meta.get('stock_number'),
         "audio_date": meta.get('audio_date'),
@@ -142,35 +166,64 @@ def save_memo_only(data, filepath):
 
     for topic in memo_list:
         heading = topic.get('zh_heading') or topic.get('heading', '未分類')
-        topic_data = {
-            "heading": heading,
-            "items": []
-        }
+        
+        raw_topic_data = {"heading": heading, "items": []}
+        sentiment_topic_data = {"heading": heading, "items": []}
+        
         for item in topic.get('items', []):
-            zh_text = item.get('translate', {}).get('zh', '')
-            en_text = item.get('text', '')
+            zh_text = item.get('translate', {}).get('zh', '').strip()
+            en_text = item.get('text', '').strip()
+            
             if zh_text or en_text:
-                topic_data["items"].append({
+                raw_topic_data["items"].append({
                     "zh": zh_text,
                     "en": en_text
                 })
-        json_output["memos"].append(topic_data)
+            
+            target_text = zh_text if zh_text else en_text
+            if target_text:
+                cleaned_text = target_text.lstrip("• ").strip()
+                if cleaned_text:
+                    score_result = analyzer.analyze_text(cleaned_text)
+                    sentiment_topic_data["items"].append({
+                        "text": cleaned_text,
+                        "sentiment": score_result
+                    })
+                    
+        if raw_topic_data["items"]:
+            raw_output["memos"].append(raw_topic_data)
+        if sentiment_topic_data["items"]:
+            sentiment_output["memos"].append(sentiment_topic_data)
 
-    with open(filepath, 'w', encoding='utf-8') as f:
-        json.dump(json_output, f, ensure_ascii=False, indent=4)
-        
+    # # 寫入本地端除錯/備份用 JSON 檔案
+    # memo_path = f"{output_dir}/{base_title}_Memo.json"
+    # sentiment_path = f"{output_dir}/{base_title}_sentiment_analyzed.json"
+    
+    # with open(memo_path, 'w', encoding='utf-8') as f:
+    #     json.dump(raw_output, f, ensure_ascii=False, indent=4)
+    # print(f"   💾 本地備份 -> 原始摘要已儲存：{memo_path}")
+
+    # with open(sentiment_path, 'w', encoding='utf-8') as f:
+    #     json.dump(sentiment_output, f, ensure_ascii=False, indent=4)
+    # print(f"   💾 本地備份 -> 情緒分析已儲存：{sentiment_path}")
+    
     return True
 
 
-# === 主程式執行 ===
-if __name__ == '__main__':
-    query = input("請輸入股票代號 (例如 2330)：").strip()
+def verbatim_scraping(query):
+    """
+    彙整主執行函式
+    🟢 核心優化：現在會回傳一個扁平化、完美對齊新聞 5 個欄位格式的字典列表！
+    """
+    query = query.strip()
     if not query:
-        exit()
+        print("⚠️ 錯誤：請輸入有效的股票代號或名稱。")
+        return []
 
     bearer_token = get_token_via_selenium()
     if not bearer_token:
-        exit()
+        print("❌ 無法取得 Token，結束執行。")
+        return []
 
     headers = {
         'accept': '*/*',
@@ -182,28 +235,76 @@ if __name__ == '__main__':
 
     transcripts = get_transcripts_list(query, headers)
     
-    # 🟢 當抓不到近一個月的資料時，直接給予清楚的提示並結束程式
     if not transcripts:
         print(f"\n⚠️ 提示：未搜尋到【{query}】近一個月內的法說會紀錄。")
-        exit()
+        return []
+
+    print("\n⏳ 正在初始化 FinBERT 中文金融情緒模型...")
+    analyzer = SentimentAnalyzer()
 
     output_dir = "memos_output"
     os.makedirs(output_dir, exist_ok=True)
 
+    # 🟢 用來搜集轉換為「新聞格式 5 欄位」的法說會資料容器
+    verbatim_news_results = []
+
     for idx, item in enumerate(transcripts):
         t_id = item['id']
-        title = f"{item['stock_name']}_{item['stock_number']}_{item['audio_date']}_Memo"
-        print(f"[{idx+1}/{len(transcripts)}] 正在透過 API 下載：{title} ...")
+        stock_name = item.get('stock_name', '未知個股')
+        stock_num = item.get('stock_number', query)
+        audio_date = item.get('audio_date', '未知日期')
+        
+        base_title = f"{stock_name}_{stock_num}_{audio_date}"
+        print(f"\n🚀 [{idx+1}/{len(transcripts)}] 正在下載並扁平化對齊：{base_title} ...")
         
         detail_data = get_transcript_detail(t_id, headers)
         if detail_data:
-            out_file = f"{output_dir}/{title}.json"
-            if save_memo_only(detail_data, out_file):
-                print(f"✅ 已成功儲存至 {out_file}")
+            # 1. 執行記憶體清洗與雙 JSON 檔存檔備份
+            process_and_save_data(detail_data, output_dir, base_title, analyzer)
+            
+            # 2. 🟢 欄位完美對齊加工：將這場法說會的所有項目轉換為符合新聞的 5 欄位結構
+            content = detail_data.get('content_parsed', {})
+            for topic in content.get('memo', []):
+                heading = topic.get('zh_heading') or topic.get('heading', '未分類')
+                for sub_item in topic.get('items', []):
+                    zh_text = sub_item.get('translate', {}).get('zh', '').strip()
+                    en_text = sub_item.get('text', '').strip()
+                    
+                    # 欄位調和
+                    target_text = zh_text if zh_text else en_text
+                    if target_text:
+                        cleaned_text = target_text.lstrip("• ").strip()
+                        if cleaned_text:
+                            # 預先計算這句話的情緒分數
+                            score_result = analyzer.analyze_text(cleaned_text)
+                            
+                            # ☯️ 完美對齊新聞的 5 個核心欄位 (包含預設結構，防後續 pipeline 崩潰)
+                            verbatim_news_results.append({
+                                "title": f"【法說會摘要-{stock_name}_{heading}】",
+                                "text": cleaned_text,
+                                "time": audio_date.replace("-", "/"),  # 對齊 Yahoo 的 YYYY/MM/DD 格式
+                                "link": "https://www.alphamemo.ai/free-transcripts",
+                                "sentiment_result": {
+                                    "Positive": score_result.get("Positive", 0.0),
+                                    "Neutral": score_result.get("Neutral", 0.0),
+                                    "Negative": score_result.get("Negative", 0.0),
+                                    "Composite_Score": score_result.get("Composite_Score", 0.0)
+                                }
+                            })
+            print(f"   ✅ 已成功對齊並暫存 {len(verbatim_news_results)} 條法說會細項。")
+            print("-" * 50)
 
         if idx < len(transcripts) - 1:
             delay = random.uniform(3.0, 5.0)
-            print(f"⏳ 防封鎖保護：等待 {delay:.2f} 秒再發送下一次請求...\n")
+            print(f"⏳ 防封鎖保護：等待 {delay:.2f} 秒...")
             time.sleep(delay)
 
-    print("\n🎉 所有符合條件的 JSON 摘要已經下載完畢！")
+    print("\n🎉 所有法說會紀錄已全數處理完畢並轉換完成！")
+    return verbatim_news_results  # 🟢 最終回傳對齊好的完整列表
+
+
+# === 實際手動執行進入點 ===
+if __name__ == '__main__':
+    user_input = input("請輸入股票代號 (例如 3008)：")
+    results = verbatim_scraping(user_input)
+    print(f"\n🔍 手動測試回傳結果筆數：{len(results)} 筆")
