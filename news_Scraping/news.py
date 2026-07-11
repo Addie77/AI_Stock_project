@@ -16,6 +16,7 @@ if parent_dir not in sys.path:
 from news_yahoo import scrap_yahoo
 from api_sender import send_news_to_springboot
 from sentiment_model.sentiment_analyzer import SentimentAnalyzer
+from verbatim.verbatim_scraping import verbatim_scraping
 
 # --- 全域變數定義 ---
 # 將分析器設為全域變數並初始為 None，實現「懶載入」，避免重複啟動耗時
@@ -66,6 +67,20 @@ def run_full_news_pipeline(stock_id):
     # limit_per_source = 5
 
     print(f"\n🚀 [Pipeline] 開始執行 {stock_id} 的完整新聞任務...")
+
+    # === 先執行法說會爬蟲 ===
+    try:
+        print(f"\n[1/2] ⏳ 啟動 {stock_id} 的法說會 Memo 爬取...")
+        verbatim_news = verbatim_scraping(stock_id)
+        if verbatim_news:
+            all_news_results.extend(verbatim_news)
+            print(f"✅ 成功整合 {len(verbatim_news)} 條法說會摘要項目")
+        else:
+            print("ℹ️ 未發現或未擷取到符合條件的法說會資料。")
+    except Exception as e:
+        print(f"❌ 法說會資料整合失敗: {e}")
+
+    # === 再執行 Yahoo 新聞爬蟲 ===
     
     try:
         yahoo_news = scrap_yahoo(symbol=stock_id, daily_limit=30) 
@@ -107,7 +122,7 @@ def run_full_news_pipeline(stock_id):
     # except Exception as e:
     #     print(f"本地 JSON 儲存失敗: {e}")
 
-    print(f"✨ {stock_id} 新聞任務執行完成！")
+    print(f"✨ {stock_id} 新聞與法說會任務執行完成！")
     return all_news_results
 
 # --- 手動測試區塊 ---
