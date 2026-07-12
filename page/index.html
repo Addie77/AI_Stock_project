@@ -4,39 +4,38 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>StockAI 智能儀表板</title>
-    
     <link rel="stylesheet" href="style.css">
-    
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2"></script>
 </head>
 <body>
+    <!-- 新增：小螢幕專用漢堡選單點擊按鈕 -->
+    <button class="mobile-menu-toggle" id="menuToggleBtn">☰</button>
+    <!-- 新增：小螢幕側邊欄開啟時的背景遮罩 -->
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
     <div class="container">
-        
-        <nav class="sidebar">
+        <nav class="sidebar" id="sidebar">
             <div class="logo">StockAI</div>
             <ul class="nav-links">
                 <li class="active" id="navMarketOverview">市場總覽</li>
-                <!-- 新增：自選頁面導覽按鈕 -->
                 <li id="navWatchlist">自選股</li>
                 <li id="navAiReport">AI 報告</li>
             </ul>
         </nav>
 
         <main class="main-content">
-            
             <header>
                 <input type="text" placeholder="搜尋股票代碼..." id="stockSearch">
-                <div id="displayName">載入中...</div>
-                <div class="status">系統：<span class="online">ONLINE</span></div>
+                <div class="header-info">
+                    <div id="displayName">載入中...</div>
+                    <div class="status">系統：<span class="online">ONLINE</span></div>
+                </div>
             </header>
 
-            <!-- 包裹原本市場總覽與 AI 報告的區塊，方便切換頁面時整體隱藏 -->
             <div id="mainDashboardViews" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
                 <div class="stats-grid">
                     <div class="stat-card">
-                        <!-- 💡 核心修改：優化愛心樣式，讓它變成大顆（1.6em）且純白色的空心愛心 -->
                         <h3 style="display: flex; align-items: center; justify-content: space-between;">
                             市場情感分數 
                             <span id="addWatchlistBtn" style="cursor: pointer; color: transparent; -webkit-text-stroke: 2px #ffffff; font-size: 1.6em; transition: transform 0.1s; user-select: none;" title="加入自選股">❤</span>
@@ -72,13 +71,12 @@
                 </section>
             </div>
 
-            <!-- 新增：自選頁面獨立區塊 (預設隱藏) -->
             <section class="watchlist-section" id="watchlistSection" style="display: none;">
                 <div class="watchlist-card">
                     <h3>我的自選股清單</h3>
                     <p class="stat-desc">這裡可以展示您追蹤的股票自選清單項目</p>
-                    <div style="margin-top: 20px; color: #94a3b8;">
-                        <!-- 您可以在此處自由擴充您的自選股表格 or 內容 -->
+                    <!-- 新增：表格包覆外框，防手機破版 -->
+                    <div class="table-responsive" style="margin-top: 20px;">
                         暫無自選股資料，可在後續擴充此區塊功能。
                     </div>
                 </div>
@@ -87,5 +85,30 @@
     </div>
     
     <script src="script.js"></script>
+    
+    <!-- 新增：控制小螢幕漢堡選單開關的輕量 JS -->
+    <script>
+        const menuToggleBtn = document.getElementById('menuToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        const sidebarOverlay = document.getElementById('sidebarOverlay');
+        const navLinks = document.querySelectorAll('.nav-links li');
+
+        function toggleMenu() {
+            sidebar.classList.toggle('open');
+            sidebarOverlay.classList.toggle('active');
+        }
+
+        menuToggleBtn.addEventListener('click', toggleMenu);
+        sidebarOverlay.addEventListener('click', toggleMenu);
+        
+        // 點擊選單項目後自動關閉側邊欄
+        navLinks.forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth <= 768) {
+                    toggleMenu();
+                }
+            });
+        });
+    </script>
 </body>
 </html>

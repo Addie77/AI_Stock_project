@@ -134,8 +134,32 @@ header {
     border: 1px solid #334155; /* 細部深灰邊框，在深色背景下勾勒出卡片邊緣線條 */
 }
 
-/* Chart.js 畫布的包覆容器，強制指定 400px 高度防止圖表跑位 */
-.canvas-wrapper { height: 400px; width: 100%; margin-top: 15px; }
+/* Chart.js 畫布的包覆容器：強制指定高度，並確保寬度完全隨父層卡片伸縮 */
+.canvas-wrapper { 
+    height: 400px; 
+    width: 100%; 
+    max-width: 100%; /* 💡 確保絕對不會超出父層卡片 */
+    margin-top: 15px; 
+    position: relative; /* 💡 Chart.js 官方強烈建議響應式容器加上 relative 屬性 */
+    display: block;
+}
+
+/* 💡 強制讓 Chart.js 生成的 canvas 元件百分之百跟隨容器 */
+.canvas-wrapper canvas {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+/* 斷點設定：平板與手機端優化 */
+@media (max-width: 768px) {
+    /* ... 保持你原本複製的其他 RWD 設定 ... */
+
+    /* 縮小圖表高度以符合手機螢幕比例，並維持寬度 */
+    .canvas-wrapper {
+        height: 300px;
+        width: 100%;
+    }
+}
 
 /**
  * ============================================================================
@@ -329,4 +353,154 @@ header {
 
 .watchlist-input:focus {
     border-color: #38bdf8;
+}
+
+/**
+ * ============================================================================
+ * 響應式優化與防破版底層設定 (Responsive Fixes)
+ * ============================================================================
+ */
+
+/* 確保全螢幕下的基本彈性 */
+.container {
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* 防止自選股表格在手機版溢出破版，改為橫向滾動 */
+.table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動更平滑 */
+}
+
+.watchlist-table {
+    min-width: 600px; /* 確保表格在窄螢幕下仍能保持基本可讀欄寬 */
+}
+
+/* 頂部 Header 重構，在空間不夠時支援包覆換行 */
+header {
+    flex-wrap: wrap;
+    gap: 15px;
+}
+
+.header-info {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+/* 小螢幕專用漢堡選單按鈕 (預設隱藏) */
+.mobile-menu-toggle {
+    display: none;
+    position: fixed;
+    top: 15px;
+    left: 15px;
+    z-index: 1001;
+    background: var(--accent);
+    color: #0f172a;
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+/* 半透明黑色遮罩 (預設隱藏) */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(2, 6, 23, 0.7);
+    z-index: 999;
+    backdrop-filter: blur(4px);
+}
+
+/**
+ * ============================================================================
+ * 斷點設定：平板與手機端優化 (Media Query: Max-width 768px)
+ * ============================================================================
+ */
+@media (max-width: 768px) {
+    /* 顯示漢堡選單按鈕 */
+    .mobile-menu-toggle {
+        display: block;
+    }
+
+    /* 啟用遮罩作用態 */
+    .sidebar-overlay.active {
+        display: block;
+    }
+
+    /* 調整主容器為單欄直向排列 */
+    .container {
+        flex-direction: column;
+    }
+
+    /* 側邊導覽列改為「抽屜式」隱藏，點擊漢堡鈕才滑出 */
+    .sidebar {
+        position: fixed;
+        left: -240px; /* 寬度為 200px + padding 40px */
+        top: 0;
+        z-index: 1000;
+        transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
+    }
+
+    /* 當側邊欄帶有 .open 樣式時滑出 */
+    .sidebar.open {
+        transform: translateX(240px);
+    }
+
+    /* 主內容區填滿，並預留頂部空間給漢堡按鈕 */
+    .main-content {
+        padding: 20px;
+        padding-top: 70px; 
+        width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 頂部搜尋與資訊改為上下直排 */
+    header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 15px;
+    }
+
+    #stockSearch {
+        width: 100%; /* 搜尋框滿版 */
+        box-sizing: border-box;
+    }
+
+    .header-info {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    /* AI 建議報告的卡片標頭改為直排，讓按鈕在手機上不會擠扁 */
+    .card-header-btn {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .primary-btn {
+        width: 100%; /* 按鈕在手機版改為滿版，方便大拇指點擊 */
+        text-align: center;
+    }
+
+    /* 縮小圖表高度以符合手機螢幕比例 */
+    .canvas-wrapper {
+        height: 300px;
+    }
+
+    /* 微調卡片內邊距 */
+    .stat-card, .chart-card, .news-card, .watchlist-card {
+        padding: 18px;
+    }
 }
