@@ -504,3 +504,97 @@ header {
         padding: 18px;
     }
 }
+
+
+
+/**
+ * ============================================================================
+ * 熱門股票頁面專屬樣式 (Trending Section Styling)
+ * ============================================================================
+ */
+.trending-header {
+    margin-bottom: 20px;
+}
+
+.trending-header h2 {
+    color: white;
+    margin: 0 0 5px 0;
+}
+
+/* 將上市與上櫃拆成左右兩個卡片 */
+.trending-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    width: 100%;
+}
+
+.trending-card {
+    background: var(--card);
+    padding: 25px;
+    border-radius: 16px;
+    border: 1px solid #334155;
+}
+
+/* 熱門清單樣式 */
+.trending-list {
+    list-style: none;
+    padding: 0;
+    margin: 15px 0 0 0;
+}
+
+.trending-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    background: #0f172a;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    cursor: pointer; /* 暗示可以點擊去查看股票 */
+}
+
+/* 滑鼠移上去會有微微亮起的效果 */
+.trending-list li:hover {
+    border-color: var(--accent);
+    background: rgba(56, 189, 248, 0.05);
+    transform: translateX(5px); /* 微幅向右滑動效果 */
+}
+
+/* 股票代碼與名稱 */
+.trend-name {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: var(--text);
+}
+
+.trend-code {
+    color: #94a3b8;
+    font-size: 0.9em;
+    margin-left: 8px;
+}
+
+/* 右側快速分析按鈕 */
+.trend-action-btn {
+    background: rgba(56, 189, 248, 0.1);
+    color: var(--accent);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 0.85em;
+    cursor: pointer;
+    font-weight: bold;
+}
+.trend-action-btn:hover {
+    background: var(--accent);
+    color: #0f172a;
+}
+
+/* 手機版：上市上櫃改為上下排列 */
+@media (max-width: 768px) {
+    .trending-grid {
+        grid-template-columns: 1fr;
+    }
+}

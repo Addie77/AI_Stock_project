@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Enter') {
             const inputCode = e.target.value.trim();
             if (inputCode) {
-                // 如果在自選股頁面進行搜尋，自動切回市場總覽以利觀看圖表
+                // 如果在自選股或熱門股頁面進行搜尋，自動切回市場總覽以利觀看圖表
                 showDashboardView();
                 fetchStockData(inputCode);
             }
@@ -53,8 +53,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // 動態切換側邊欄的 CSS 高亮樣式 (Active Class Tab)
-        document.getElementById('navMarketOverview').classList.remove('active');
-        document.getElementById('navWatchlist').classList.remove('active'); // 新增：移除自選股高亮
+        document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navAiReport').classList.add('active');
     });
 
@@ -68,8 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // 平滑滾動回瀏覽器視窗最頂部 (Y 軸 0 的位置)
         window.scrollTo({ top: 0, behavior: 'smooth' });
         
-        document.getElementById('navAiReport').classList.remove('active');
-        document.getElementById('navWatchlist').classList.remove('active'); // 新增：移除自選股高亮
+        document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navMarketOverview').classList.add('active');
     });
 
@@ -77,14 +75,14 @@ document.addEventListener('DOMContentLoaded', () => {
      * 💡 新增互動功能：點擊左側「自選股」切換至自選頁面
      */
     document.getElementById('navWatchlist').addEventListener('click', () => {
-        // 隱藏原本的市場總覽與 AI 報告，顯示自選股區塊
+        // 隱藏原本的市場總覽與熱門股，顯示自選股區塊
         document.getElementById('mainDashboardViews').style.display = 'none';
+        document.getElementById('trendingSection').style.display = 'none'; // 隱藏熱門股票
         document.getElementById('watchlistSection').style.display = 'block';
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // 切換側邊欄高亮
-        document.getElementById('navMarketOverview').classList.remove('active');
-        document.getElementById('navAiReport').classList.remove('active');
+        document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navWatchlist').classList.add('active');
 
         // 💡 載入自選股清單
@@ -93,7 +91,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 監聽心型「加入自選股」按鈕的點擊事件
+    /**
+     * 💡 整合新增互動功能：點擊左側「熱門股票」切換至熱門頁面
+     */
+    document.getElementById('navTrending').addEventListener('click', () => {
+        // 隱藏市場總覽與自選股，顯示熱門股票區塊
+        document.getElementById('mainDashboardViews').style.display = 'none';
+        document.getElementById('watchlistSection').style.display = 'none';
+        document.getElementById('trendingSection').style.display = 'block';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+
+        // 切換側邊欄高亮
+        document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
+        document.getElementById('navTrending').classList.add('active');
+    });
+
+    // 監聽心型「加入自選股」按鈕的點擊事件 (保留妳原本串接 Java 的 fetch API)
     document.getElementById('addWatchlistBtn').addEventListener('click', async () => {
         if (!currentStockCode) {
             alert("請先搜尋股票代碼，再加入自選股。");
@@ -159,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function showDashboardView() {
     document.getElementById('mainDashboardViews').style.display = 'flex';
     document.getElementById('watchlistSection').style.display = 'none';
+    document.getElementById('trendingSection').style.display = 'none'; // 💡 確保這裡也會隱藏熱門頁面
 }
 
 /**
@@ -666,4 +680,23 @@ async function deleteFavoriteRow(stockId) {
         console.error("刪除自選股失敗:", e);
         alert("刪除失敗: " + e.message);
     }
+}
+
+/**
+ * ============================================================================
+ * 💡 新增：熱門股票純前端跳轉與分析邏輯
+ * 作用：當點選熱門股票時，直接切回市場總覽並呼叫妳原本的 fetchStockData() 連線抓資料
+ * ============================================================================
+ */
+function analyzeFromTrending(code) {
+    // 1. 切換回市場總覽分頁
+    showDashboardView();
+    document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
+    document.getElementById('navMarketOverview').classList.add('active');
+    
+    // 2. 把股票代碼填入頂部搜尋框
+    document.getElementById('stockSearch').value = code;
+    
+    // 3. 呼叫妳原本與 Python 串接的分析流程，實現無縫一鍵分析！
+    fetchStockData(code);
 }
