@@ -96,33 +96,76 @@
                 </section>
             </div>
 
-            <!-- 💡 整合修改：移除寫死的股票資料，改為「暫無資料」的提示字樣，等待後續 API 對接 -->
+            <!-- 💡 整合修改：熱門股票動態爬蟲區塊（完全無寫死資料，等待後端 API 對接） -->
             <section class="trending-section" id="trendingSection" style="display: none; width: 100%;">
-                <div class="trending-header">
-                    <h2>🔥 台股人氣熱門榜 (Top 5)</h2>
-                    <p class="stat-desc">依據近期成交爆量與市場關注度綜合排行</p>
+                <div class="trending-header" style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2>🔥 台股人氣熱門榜 (Top 5)</h2>
+                        <p class="stat-desc">即時連線證交所與櫃買中心 API，並自動過濾 ETF 商品</p>
+                    </div>
+                    <!-- 重新整理按鈕 -->
+                    <button class="primary-btn" onclick="fetchLiveTrendingStocks()" style="padding: 8px 16px;">🔄 即時刷新</button>
                 </div>
                 
-                <div class="trending-grid">
-                    <!-- 上市熱門前五 -->
-                    <div class="trending-card">
-                        <h3 style="color: #f87171; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0;">📈 上市熱門 (TWSE)</h3>
-                        <ul class="trending-list" id="twseList">
-                            <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">
-                                暫無上市熱門股票資料，可在後續串接 API 讀取。
-                            </li>
-                        </ul>
-                    </div>
+                <!-- 上市與上櫃的大容器 -->
+                <div style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
                     
-                    <!-- 上櫃熱門前五 -->
-                    <div class="trending-card">
-                        <h3 style="color: #fbbf24; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0;">🚀 上櫃熱門 (TPEx)</h3>
-                        <ul class="trending-list" id="tpexList">
-                            <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">
-                                暫無上櫃熱門股票資料，可在後續串接 API 讀取。
-                            </li>
-                        </ul>
+                    <!-- ================= 上市公司 (TWSE) ================= -->
+                    <div>
+                        <h2 style="color: #f87171; margin-bottom: 15px; font-size: 1.4em;">📈 上市股票 (TWSE)</h2>
+                        <div class="trending-grid">
+                            <!-- 上市成交量 Top 5 -->
+                            <div class="trending-card">
+                                <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
+                                    <span>📊 成交張數排行</span>
+                                    <span style="font-size: 0.8em; color: #64748b;">(張)</span>
+                                </h3>
+                                <ul class="trending-list" id="twseVolumeList">
+                                    <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">連線爬蟲中...</li>
+                                </ul>
+                            </div>
+                            
+                            <!-- 上市收盤價 Top 5 -->
+                            <div class="trending-card">
+                                <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
+                                    <span>💎 股價高低排行</span>
+                                    <span style="font-size: 0.8em; color: #64748b;">(TWD)</span>
+                                </h3>
+                                <ul class="trending-list" id="twsePriceList">
+                                    <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">連線爬蟲中...</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- ================= 上櫃公司 (TPEx) ================= -->
+                    <div>
+                        <h2 style="color: #fbbf24; margin-bottom: 15px; font-size: 1.4em;">🚀 上櫃股票 (TPEx)</h2>
+                        <div class="trending-grid">
+                            <!-- 上櫃成交量 Top 5 -->
+                            <div class="trending-card">
+                                <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
+                                    <span>📊 成交張數排行</span>
+                                    <span style="font-size: 0.8em; color: #64748b;">(張)</span>
+                                </h3>
+                                <ul class="trending-list" id="tpexVolumeList">
+                                    <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">連線爬蟲中...</li>
+                                </ul>
+                            </div>
+                            
+                            <!-- 上櫃收盤價 Top 5 -->
+                            <div class="trending-card">
+                                <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
+                                    <span>💎 股價高低排行</span>
+                                    <span style="font-size: 0.8em; color: #64748b;">(TWD)</span>
+                                </h3>
+                                <ul class="trending-list" id="tpexPriceList">
+                                    <li style="color: #64748b; text-align: center; cursor: default; background: transparent;">連線爬蟲中...</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
             </section>
 
