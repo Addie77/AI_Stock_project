@@ -1,11 +1,23 @@
 import os
 import sys
 import json
+import base64
 import requests
 import time
 import random
 from datetime import datetime, timedelta
 from selenium import webdriver
+from selenium.webdriver.chrome.webdriver import WebDriver as Chrome
+from selenium.webdriver.chrome.options import Options as ChromeOptions
+
+
+# 🟢 解決 Windows 下印出 Emoji 可能產生的 UnicodeEncodeError
+try:
+    reconfig = getattr(sys.stdout, 'reconfigure', None)
+    if reconfig:
+        reconfig(errors='replace')
+except Exception:
+    pass
 
 # =====================================================================
 # 🟢 跨資料夾路徑設定
@@ -18,31 +30,89 @@ if sentiment_model_path not in sys.path:
     sys.path.append(sentiment_model_path)
 
 
+SESSION_FILE = os.path.join(current_dir, "verbatim_session.json")
+
+def is_jwt_token_valid(token_str):
+    """驗證 JWT Token 是否仍在有效期限內 (預留 5 分鐘緩衝)"""
+    if not token_str:
+        return False
+    try:
+        # 移除 Bearer 前綴
+        raw_token = token_str.replace("Bearer ", "").strip()
+        parts = raw_token.split('.')
+        if len(parts) != 3:
+            return False
+        
+        payload_b64 = parts[1]
+        # 補足 Base64 填充字元 =
+        payload_b64 += '=' * (-len(payload_b64) % 4)
+        payload_json = base64.b64decode(payload_b64).decode('utf-8')
+        payload = json.loads(payload_json)
+        
+        exp = payload.get('exp')
+        if exp:
+            # 預留 300 秒 (5 分鐘) 的緩衝期，避免即將過期的 Token 導致請求失敗
+            return time.time() < (exp - 300)
+    except Exception as e:
+        print(f"⚠️ 解析 Token 效期時發生異常: {e}")
+    return False
+
+
+def get_valid_token():
+    """取得有效的 Token。若快取有效則直接使用，否則啟動瀏覽器取得並更新快取"""
+    if os.path.exists(SESSION_FILE):
+        try:
+            with open(SESSION_FILE, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                cached_token = data.get("access_token")
+                if is_jwt_token_valid(cached_token):
+                    print("✅ 偵測到有效的本地快取權杖，直接載入！(無須啟動瀏覽器)")
+                    return cached_token
+                else:
+                    print("⏳ 本地快取權杖已過期或無效，準備重新獲取...")
+        except Exception as e:
+            print(f"⚠️ 讀取快取權杖檔案失敗: {e}")
+
+    # 執行 Selenium 取得新 Token
+    token = get_token_via_selenium()
+    if token:
+        try:
+            with open(SESSION_FILE, 'w', encoding='utf-8') as f:
+                json.dump({"access_token": token}, f, ensure_ascii=False, indent=4)
+            print("💾 新權杖已成功快取至本地檔案。")
+        except Exception as e:
+            print(f"⚠️ 儲存快取權杖檔案失敗: {e}")
+    return token
+
+
 def get_token_via_selenium():
-    """步驟 1：啟動瀏覽器讓你登入，並自動擷取最新 Token (自動 Base64 解碼版)"""
+    """步驟 1：啟動瀏覽器讓你登入，並自動擷取最新 Token (自動 Base64 解碼與持久化 Profile 版)"""
     print("🌐 啟動瀏覽器以獲取登入權限...")
-    options = webdriver.ChromeOptions()
+    options = ChromeOptions()
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_experimental_option("excludeSwitches", ["enable-automation"])
     options.add_experimental_option('useAutomationExtension', False)
     
-    driver = webdriver.Chrome(options=options)
+    # 🟢 優化：使用持久性 Chrome Profile，保持 Google 登入狀態與網站 Session
+    # 解決 Windows 下若路徑含非 ASCII 字元 (例如「桌面」) 導致 Chrome 啟動崩潰的問題
+    profile_path = os.path.join(current_dir, "chrome_profile")
+    try:
+        profile_path.encode('ascii')
+    except UnicodeEncodeError:
+        user_home = os.environ.get('USERPROFILE') or os.path.expanduser('~')
+        profile_path = os.path.join(user_home, ".verbatim_chrome_profile")
+        
+    print(f"📂 使用的 Chrome 設定檔路徑: {profile_path}")
+    options.add_argument(f'--user-data-dir={profile_path}')
+    
+    driver = Chrome(options=options)
     driver.get("https://www.alphamemo.ai/free-transcripts")
     
     print("\n" + "=" * 60)
-    print("🔑 請在 30 秒內於 Chrome 視窗中點擊右上角並完成登入！")
-    print("   (登入成功後放著即可，程式會自動擷取金鑰並關閉瀏覽器)")
+    print("🔑 正在偵測登入狀態...")
+    print("   * 若您先前已登入，程式將在數秒內自動感應並擷取 Token，自動關閉瀏覽器。")
+    print("   * 若尚未登入或 Session 已過期，請在瀏覽器視窗中手動完成登入！")
     print("=" * 60 + "\n")
-    
-    for sec in range(30, 0, -5):
-        print(f"⏳ 剩餘登入時間：{sec} 秒...")
-        time.sleep(5)
-        
-    print("\n🚀 時間到！保險起見重新整理頁面確保狀態更新...")
-    driver.refresh()
-    time.sleep(3)
-    
-    print("🚀 正在從瀏覽器擷取驗證權杖...")
     
     js_script = """
     return (() => {
@@ -72,15 +142,36 @@ def get_token_via_selenium():
         return null;
     })();
     """
-    #透過 driver.execute_script() 將一段匿名 JS 函式注入網頁前端執行
-    #前半段：掃描前端 localStorage，尋找帶有 -auth-token 的金鑰，如果找到就提取裡面的 access_token
-    #後半段：如果 localStorage 沒有，就去掃描網頁 Cookie，把被拆分成 5 個碎片的 Base64 字串拼湊回來，進行解碼還原成 JSON 並取出 Token。
-    token = driver.execute_script(js_script)
+    
+    token = None
+    max_wait_sec = 45
+    for sec in range(1, max_wait_sec + 1):
+        try:
+            token = driver.execute_script(js_script)
+        except Exception:
+            # 避免網頁載入中或關閉時執行 JS 報錯
+            pass
+            
+        if token:
+            print(f"✨ 已成功感應到登入權杖！(偵測耗時: {sec} 秒)")
+            break
+            
+        # 在第 8 秒時，若有持續 Profile 但仍未抓到 Token，自動重新整理一次確保 Supabase Session 刷新
+        if sec == 8:
+            print("🔄 自動重新整理頁面以觸發 Session 刷新...")
+            try:
+                driver.refresh()
+            except:
+                pass
+                
+        if sec % 5 == 0:
+            print(f"⏳ 偵測中，已等待 {sec} 秒 (最長等待 {max_wait_sec} 秒)...")
+            
+        time.sleep(1)
+        
     driver.quit() 
     
-    #驗證 Token 是否成功抓到。
-    #如果是以 eyJhbG（JWT 標準開頭）啟始，代表權杖完全合法，並加上網頁 Header 標準的 "Bearer " 格式後回傳；
-    #失敗則回傳 None。
+    # 驗證 Token 是否成功抓到。
     if token:
         print(f"✅ 成功擷取登入權杖！(檢查碼: {token[:15]}...)")
         if token.startswith("eyJhbG"):
@@ -200,7 +291,7 @@ def verbatim_scraping(query):
         print("⚠️ 錯誤：請輸入有效的股票代號或名稱。")
         return []
 
-    bearer_token = get_token_via_selenium()
+    bearer_token = get_valid_token()
     if not bearer_token:
         print("❌ 無法取得 Token，結束執行。")
         return []

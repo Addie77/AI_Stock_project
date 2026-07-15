@@ -54,3 +54,7 @@ gemini.md
 
 #金鑰
 .env
+
+# Verbatim Session & Cache
+verbatim/chrome_profile/
+verbatim/verbatim_session.json
