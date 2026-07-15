@@ -37,7 +37,11 @@
 
             <!-- 市場總覽與原本圖表、AI報告區塊 (原本功能皆保留) -->
             <div id="mainDashboardViews" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
+                
+                <!-- 💡 核心排版：雙欄 50% 對稱格局 -->
                 <div class="stats-grid">
+                    
+                    <!-- 卡片 1：市場情感分數 (左側) -->
                     <div class="stat-card">
                         <h3 style="display: flex; align-items: center; justify-content: space-between;">
                             市場情感分數 
@@ -49,6 +53,24 @@
                         <div id="sentVal" class="stat-value">0 / 100</div>
                         <p class="stat-desc">基於新聞與本地 FinBERT 語意分析</p>
                     </div>
+
+                    <!-- 卡片 2：💡 整合修改：保留標題，並將「漲跌文字」與「預測機率」左右並排對齊，高度維持與左邊對稱 -->
+                    <div class="stat-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                        <h3 style="margin-top: 0; margin-bottom: 0; line-height: 1.2;">AI 智能漲跌預測</h3>
+                        
+                        <!-- 漲跌字樣與機率並排容器 -->
+                        <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: auto; margin-bottom: auto; padding: 25px 0 10px 0;">
+                            <!-- 預測方向 (原本的 id) -->
+                            <div id="predictVal" class="stat-value" style="color: #64748b; margin: 0;">
+                                待搜尋股票
+                            </div>
+                            <!-- 💡 新增：預測機率值 (id 為 predictProb，字體稍微縮小呈現精緻副標感) -->
+                            <div id="predictProb" style="color: #64748b; font-size: 1.8em; font-weight: 800; font-family: 'Inter', sans-serif;">
+                                --%
+                            </div>
+                        </div>
+                    </div>
+
                 </div>
 
                 <section class="chart-section">

@@ -118,10 +118,18 @@ header {
  * ============================================================================
  */
 /* 💡 專題關鍵微調：將指標網格改為單欄 1fr，達成全站卡片元件（指標、圖表、報告）寬度完美對齊 */
+/* 💡 將原本單欄的 stats-grid 調整為 1:1 的雙欄排版 */
 .stats-grid { 
     display: grid; 
-    grid-template-columns: 1fr; 
+    grid-template-columns: 1fr 1fr; /* 讓兩個卡片各佔 50% */
     gap: 20px; 
+}
+
+/* 💡 斷點設定：當手機版或螢幕寬度小於 768px 時，自動恢復成單欄排列，防止破版 */
+@media (max-width: 768px) {
+    .stats-grid { 
+        grid-template-columns: 1fr; 
+    }
 }
 
 .chart-section, .ai-report-section { width: 100%; }
