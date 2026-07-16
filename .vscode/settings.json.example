@@ -1,0 +1,39 @@
+{
+    "java.configuration.updateBuildConfiguration": "interactive",
+    
+    // Windows 使用者請使用此設定：
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+    // macOS / Linux 使用者請使用此設定：
+    // "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+    "liveServer.settings.ignoreFiles": [
+        "**/.git/**",
+        "**/.vscode/**",
+        "**/.venv/**",
+        "**/__pycache__/**",
+        "**/target/**",
+        "**/src/**",
+        "**/database/**",
+        "**/verbatim/**",
+        "**/news_Scraping/**",
+        "**/*.json",
+        "**/*.csv",
+        "**/*.py",
+        "**/*.pyc",
+        "**/*.class",
+        "**/*.xml",
+        "**/*.properties"
+    ],
+    "files.watcherExclude": {
+        "**/.git/**": true,
+        "**/.venv/**": true,
+        "**/__pycache__/**": true,
+        "**/target/**": true,
+        "**/src/**": true,
+        "**/database/**": true,
+        "**/verbatim/**": true,
+        "**/news_Scraping/**": true,
+        "**/*.json": true,
+        "**/*.csv": true
+    }
+}
