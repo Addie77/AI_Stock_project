@@ -17,6 +17,9 @@ def get_stock_historical_data(code):
     
     today = datetime.date.today()
     prices_list = []
+    openingprice_list = [] #開盤價
+    highprice_list = [] #最高價
+    lowprice_list = [] #最低價
     dates_list = []
     volumes_list = [] # 💡 新增：真實成交量陣列
     stock_name = "未知股票"
@@ -47,6 +50,9 @@ def get_stock_historical_data(code):
                     # row[0]: 日期, row[1]: 成交股數 (真實交易量), row[6]: 收盤價
                     dates_list.append(row[0].strip())
                     volumes_list.append(row[1].strip()) # 💡 擷取真實成交量
+                    openingprice_list.append(row[3].strip()) #開盤價
+                    highprice_list.append(row[4].strip()) #最高價
+                    lowprice_list.append(row[5].strip()) #最低價
                     prices_list.append(row[6].strip())
     except Exception as e:
         print(f"ℹ️ 嘗試上市 API 時發生異常 (可能非上市股票): {e}")
@@ -72,6 +78,9 @@ def get_stock_historical_data(code):
                         # row[0]: 日期 (例 115/05/02), row[6]: 收盤價
                         dates_list.append(row[0].strip())
                         volumes_list.append(row[1].strip()) # 💡 擷取真實成交量
+                        openingprice_list.append(row[3].strip())
+                        highprice_list.append(row[4].strip()) #最高價
+                        lowprice_list.append(row[5].strip()) #最低價
                         prices_list.append(row[6].strip())
         except Exception as e:
             print(f"❌ 上櫃資料抓取失敗: {e}")
@@ -84,6 +93,9 @@ def get_stock_historical_data(code):
     # 建立與 gemini.py 100% 欄位對齊的真實 DataFrame
     df = pd.DataFrame({
         '日期': dates_list,
+        '開盤價': openingprice_list,
+        '最高價': highprice_list,
+        '最低價': lowprice_list,
         '收盤價': prices_list,
         '成交量': volumes_list # 💡 欄位精確命名為 '成交量'
     })

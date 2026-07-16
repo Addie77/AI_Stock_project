@@ -69,6 +69,9 @@ def analyze():
     
     # 原始的字串價格與成交量陣列
     raw_prices = df_hist['收盤價'].tolist() if '收盤價' in df_hist.columns else []
+    raw_opens = df_hist['開盤價'].tolist() if '開盤價' in df_hist.columns else []
+    raw_highs = df_hist['最高價'].tolist() if '最高價' in df_hist.columns else []
+    raw_lows = df_hist['最低價'].tolist() if '最低價' in df_hist.columns else []
     
     # 多重欄位比對成交量
     raw_volumes = []
@@ -106,6 +109,20 @@ def analyze():
             print(f"⚠️ 偵測到個股 {code} 歷史收盤價含有異常字串 '{p}'，已啟動 Forward Fill 機制補齊。")
             prices.append(last_valid_price)
 
+    def clean_price_list(raw_list, fallback_prices):
+        cleaned = []
+        for i, val in enumerate(raw_list):
+            try:
+                clean_v = float(str(val).replace(',', '').strip())
+                cleaned.append(clean_v)
+            except (ValueError, TypeError):
+                cleaned.append(fallback_prices[i] if i < len(fallback_prices) else 0.0)
+        return cleaned
+
+    opens = clean_price_list(raw_opens, prices)
+    highs = clean_price_list(raw_highs, prices)
+    lows = clean_price_list(raw_lows, prices)
+
     # 💡 核心修正 2：後端成交量清洗防線
     volumes = []
     for v in (raw_volumes if raw_volumes else [0] * len(prices)):
@@ -133,7 +150,10 @@ def analyze():
         "name": name,
         "current_price": current_price,
         "history_dates": dates,     
-        "history_prices": prices,   
+        "history_prices": prices,
+        "history_opens": opens,     
+        "history_highs": highs,     
+        "history_lows": lows,
         "history_volumes": volumes,  
         "sentiment_score": real_score
     }

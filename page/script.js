@@ -6,6 +6,21 @@
 let stockChart;          // 儲存 Chart.js 的圖表實例（Instance），以便後續銷毀並重建圖表
 let currentStockCode = ''; // 💡 核心修正：將初始追蹤代碼設為空字串，完全移除預設股票
 
+if (typeof Chart !== 'undefined') {
+    const financialPlugin = window['chartjs-chart-financial'];
+    if (financialPlugin) {
+        Chart.register(
+            financialPlugin.CandlestickController,
+            financialPlugin.CandlestickElement,
+            financialPlugin.FinancialLinearScale
+        );
+    } else if (Chart.CandlestickController) {
+        Chart.register(
+            Chart.CandlestickController,
+            Chart.CandlestickElement
+        );
+    }
+}
 /**
  * ============================================================================
  * 網頁初始化與事件監聽 (Initialization & Event Listeners)
@@ -234,6 +249,16 @@ async function fetchStockData(code) {
         // 將後端回傳的歷史收盤價與交易量陣列同步傳入繪圖引擎
         renderChart(data.history_dates, data.history_prices, data.history_volumes);
         
+        // 💡 [新增修改]：將後端回傳的 OHLC (開、高、低、收) 與成交量資料傳入全新的 K 線圖繪製引擎
+        renderChart(
+            data.history_dates || [], 
+            data.history_opens || data.history_prices || [], 
+            data.history_highs || data.history_prices || [], 
+            data.history_lows || data.history_prices || [], 
+            data.history_prices || [], 
+            data.history_volumes || []
+        );
+
         // 💡 檢查自選股狀態以更新心型按鈕
         if (typeof checkFavoriteStatus === 'function') {
             checkFavoriteStatus(code);
@@ -348,48 +373,99 @@ async function fetchAiReport(code) {
 
 /**
  * ============================================================================
- * 數據視覺化核心：Chart.js 長週期雙 Y 軸混合圖表渲染引擎 (張數換算版)
+ * 數據視覺化核心：Chart.js K 線圖 (Candlestick) + 成交量雙 Y 軸引擎
  * ============================================================================
  */
-function renderChart(dates, prices, volumes) {
-    const ctx = document.getElementById('stockChart').getContext('2d');
-    if (stockChart) stockChart.destroy();
-
-    // 強制將收盤價轉為純數字陣列
-    const numericPrices = prices.map(Number);
+function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [], volumes = []) {
+    const canvas = document.getElementById('stockChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
     
-    // 💡 核心修正：將官方的「股數」數據，在前端實時除以 1000，完全真實換算為「張數」
-    const numericVolumesIn張 = volumes.map(v => Math.round(Number(v) / 1000));
+    if (stockChart) {
+        stockChart.destroy();
+        stockChart = null;
+    }
 
+    if (!dates || dates.length === 0) {
+        console.warn("⚠️ 歷史資料為空，跳過圖表渲染。");
+        return;
+    }
+
+    // 1. 日期格式化
+    const formattedDates = dates.map(dStr => {
+        if (!dStr) return '';
+        const parts = String(dStr).split('/');
+        if (parts.length === 3) {
+            const year = parseInt(parts[0], 10) + 1911;
+            const month = parts[1].padStart(2, '0');
+            const day = parts[2].padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+        return dStr;
+    });
+
+    // 2. 打包 OHLC 資料
+    const candlestickData = formattedDates.map((date, i) => ({
+        x: date,
+        o: Number(opens[i]) || 0,
+        h: Number(highs[i]) || 0,
+        l: Number(lows[i]) || 0,
+        c: Number(prices[i]) || 0
+    }));
+
+    // 手動計算 K 線圖的 Y 軸最高點與最低點
+    const validHighs = candlestickData.map(d => d.h).filter(v => v > 0);
+    const validLows = candlestickData.map(d => d.l).filter(v => v > 0);
+
+    let priceMax = validHighs.length > 0 ? Math.max(...validHighs) : 100;
+    let priceMin = validLows.length > 0 ? Math.min(...validLows) : 0;
+
+    // 增加上下 5% 的留白緩衝空間
+    if (priceMax > priceMin) {
+        const diff = priceMax - priceMin;
+        priceMax += diff * 0.05;
+        priceMin -= diff * 0.05;
+    }
+
+    // 3. 成交量轉換（換算為「張」）
+    const numericVolumesIn張 = volumes.map(v => Math.round((Number(v) || 0) / 1000));
+    
+    const volumeData = formattedDates.map((date, i) => ({
+        x: date,
+        y: numericVolumesIn張[i]
+    }));
+
+    const maxVol = numericVolumesIn張.length > 0 ? Math.max(...numericVolumesIn張) * 3 : 100;
+
+    // 4. 初始化圖表
     stockChart = new Chart(ctx, {
         data: {
-            labels: dates, // 橫軸共享 3 個月交易日期
             datasets: [
                 {
-                    // --- 數據集 1：收盤價折線圖 ---
-                    type: 'line',
-                    label: '歷史收盤價 (TWD)',
-                    data: numericPrices,
-                    borderColor: '#38bdf8',
-                    backgroundColor: 'rgba(56, 189, 248, 0.03)', 
-                    borderWidth: 2.5,
-                    fill: true,
-                    tension: 0.15,
-                    pointRadius: 0, 
-                    pointHoverRadius: 6,
-                    pointHoverBackgroundColor: '#4ade80',
+                    type: 'candlestick',
+                    label: '股票 K 線',
+                    data: candlestickData,
+                    color: {
+                        up: '#ef4444',
+                        down: '#22c55e',
+                        unchanged: '#94a3b8'
+                    },
+                    borderColor: {
+                        up: '#ef4444',
+                        down: '#22c55e',
+                        unchanged: '#94a3b8'
+                    },
                     yAxisID: 'y',
                     order: 1      
                 },
                 {
-                    // --- 數據集 2：成交量柱狀圖 ---
                     type: 'bar',
-                    label: '成交張數 (張)', // 💡 UI 優化：標籤改為張數
-                    data: numericVolumesIn張, // 💡 使用換算為「張」的數字陣列
-                    backgroundColor: 'rgba(148, 163, 184, 0.15)', 
+                    label: '成交張數 (張)', 
+                    data: volumeData, 
+                    backgroundColor: 'rgba(148, 163, 184, 0.25)', 
                     hoverBackgroundColor: 'rgba(56, 189, 248, 0.4)',
-                    barPercentage: 0.85,
-                    yAxisID: 'y1', // 對接右側 Y 軸 (交易量軸)
+                    barPercentage: 0.8,
+                    yAxisID: 'y1', 
                     order: 2       
                 }
             ]
@@ -403,17 +479,17 @@ function renderChart(dates, prices, volumes) {
                 intersect: false       
             },
             scales: {
-                // 左側 Y 軸：主導收盤價
                 y: { 
                     type: 'linear',
                     display: true,
                     position: 'left',
                     beginAtZero: false, 
+                    min: Math.max(0, priceMin),
+                    max: priceMax,
                     grid: { color: '#334155' }, 
                     ticks: { color: '#94a3b8' },
                     title: { display: true, text: '價格 (TWD)', color: '#94a3b8' }
                 },
-                // 💡 右側 Y 軸：主導成交量（張數）
                 y1: {
                     type: 'linear',
                     display: true,
@@ -422,16 +498,25 @@ function renderChart(dates, prices, volumes) {
                     grid: { display: false }, 
                     ticks: { 
                         color: '#64748b',
-                        // 格式化右側軸的數字為千分位顯示
                         callback: function(value) { return value.toLocaleString(); } 
                     },
-                    title: { display: true, text: '成交量 (張)', color: '#64748b' }, // 💡 座標軸標題改為「張」
-                    // 強迫交易量的最大值翻倍，讓柱狀圖維持在畫面的下半部 50%
-                    max: Math.max(...numericVolumesIn張) * 2
+                    title: { display: true, text: '成交量 (張)', color: '#64748b' },
+                    max: maxVol
                 },
                 x: { 
+                    // 💡 關鍵修復：將 time 改為 timeseries
+                    type: 'timeseries',
+                    time: {
+                        unit: 'day',
+                        displayFormats: { day: 'MM/dd' }
+                    },
                     grid: { display: false },
-                    ticks: { color: '#94a3b8', maxTicksLimit: 8 } 
+                    ticks: { 
+                        color: '#94a3b8', 
+                        maxTicksLimit: 10,
+                        // 💡 關鍵修復：確保底下的日期刻度嚴格對齊有資料的 K 棒
+                        source: 'data' 
+                    } 
                 }
             },
             plugins: {
@@ -440,14 +525,17 @@ function renderChart(dates, prices, volumes) {
                 tooltip: {
                     enabled: true,
                     callbacks: {
-                        // 💡 提示框優化：當滑鼠移入時，Tooltip 會動態加上個別dataset的正確單位（元 vs 張）
                         label: function(context) {
-                            let label = context.dataset.label || '';
-                            // 移除原本標籤裡的括號單位，重新漂亮地組合
-                            if (context.datasetIndex === 0) {
-                                return ` 收盤價: $${context.parsed.y.toLocaleString()} TWD`;
+                            if (context.dataset.type === 'candlestick') {
+                                const raw = context.raw || {};
+                                return [
+                                    ` 開盤: $${raw.o || 0}`,
+                                    ` 最高: $${raw.h || 0}`,
+                                    ` 最低: $${raw.l || 0}`,
+                                    ` 收盤: $${raw.c || 0}`
+                                ];
                             } else {
-                                return ` 成交張數: ${context.parsed.y.toLocaleString()} 張`;
+                                return ` 成交張數: ${(context.parsed.y || 0).toLocaleString()} 張`;
                             }
                         }
                     }
