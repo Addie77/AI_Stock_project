@@ -2,4 +2,4 @@
 venvPath = "."
 venv = ".venv"
 pythonVersion = "3.11"
-extraPaths = ["."]
+extraPaths = [".", "python_service", "python_service/news_Scraping"]
