@@ -9,11 +9,11 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 def get_stock_historical_data(code):
     """
-    動態抓取特定個股過去 3 個月的歷史日收盤價與真實成交量
+    動態抓取特定個股過去 6 個月的歷史日收盤價與真實成交量
     支援上市（證交所）與上櫃（櫃買中心）股票
     """
     code = str(code).strip().zfill(4)
-    print(f"📡 正在動態抓取股票代碼 {code} 過去 3 個月的歷史行情與真實成交量...")
+    print(f"📡 正在動態抓取股票代碼 {code} 過去 6 個月的歷史行情與真實成交量...")
     
     today = datetime.date.today()
     prices_list = []
@@ -25,9 +25,9 @@ def get_stock_historical_data(code):
     stock_name = "未知股票"
     market_type = "未知"
 
-    # 1. 計算要抓取的月份 (今天往回推 3 個月)
+    # 1. 計算要抓取的月份 (今天往回推 6 個月)
     months_to_fetch = []
-    for i in range(2, -1, -1):
+    for i in range(5, -1, -1):
         d = today - datetime.timedelta(days=i * 30)
         months_to_fetch.append(d.strftime("%Y%m01"))
 

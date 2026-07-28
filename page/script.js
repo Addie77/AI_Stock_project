@@ -224,7 +224,7 @@ async function fetchStockData(code) {
     // 💡 核心修正：移除 localStorage.setItem，不將資料寫入本地儲存，確保每次重新整理都是乾淨重置
     
     // 重設底部的 AI 智能建議報告區塊，將其還原為初始待命狀態，提供更好的 UI 體驗
-    document.getElementById('aiSummary').innerText = "請點擊上方按鈕，以生成基於 3 個月歷史數據的 AI 技術面分析建議。";
+    document.getElementById('aiSummary').innerText = "請點擊上方按鈕，以生成基於 6 個月歷史數據的 AI 技術面分析建議。";
     const aiAdvice = document.getElementById('aiAdvice');
     aiAdvice.style.display = 'none'; // 隱藏前次的 AI 建議框
     aiAdvice.innerHTML = '';        // 清空前次的 AI 內容
