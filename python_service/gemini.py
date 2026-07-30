@@ -62,7 +62,20 @@ news_tasks = {}
 def analyze():
     code = request.args.get('code', '').strip().zfill(4)
     
+    # 💡 [即時預測快取處理]：若已在快取中，先觸發即時預測並更新快取
     if code in stock_cache:
+        try:
+            from ml_inference import predict_stock
+            stock_name = stock_cache[code].get('name', '未知個股')
+            predict_stock(code, stock_name=stock_name)
+            java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
+            if java_res.status_code == 200:
+                java_data = java_res.json()
+                stock_cache[code]['sentiment_score'] = java_data.get("averageSentimentScore", 0)
+                stock_cache[code]['ai_prediction'] = java_data.get("aiPrediction", None)
+                print(f"⚡ 已完成快取內 {code} 的即時預測與更新。")
+        except Exception as pe:
+            print(f"⚠️ 更新快取預測失敗: {pe}")
         return jsonify(stock_cache[code])
 
     try:
@@ -76,6 +89,14 @@ def analyze():
 
     name = df_hist.iloc[0]['名稱'] if '名稱' in df_hist.columns else "未知個股"
     dates = df_hist['日期'].tolist()      
+    
+    # 💡 [即時預測首次載入]：首次載入時，先觸發即時預測推理
+    try:
+        from ml_inference import predict_stock
+        predict_stock(code, stock_name=name)
+        print(f"⚡ 首次即時預測完成：已動態更新 {code} 的預測機率。")
+    except Exception as pe:
+        print(f"⚠️ 首次即時預測推理失敗: {pe}")
     
     # 原始的字串價格與成交量陣列
     raw_prices = df_hist['收盤價'].tolist() if '收盤價' in df_hist.columns else []
@@ -146,12 +167,14 @@ def analyze():
 
     # 💡 智慧防禦：讀取 Spring Boot 資料庫分數，預設回補 0 分
     real_score = 0
+    ai_prediction = None
     try:
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
         if java_res.status_code == 200:
             java_data = java_res.json()
             # 優先從 Java 獲取分數，若無則預設為 0
             real_score = java_data.get("averageSentimentScore", 0)
+            ai_prediction = java_data.get("aiPrediction", None)
     except Exception as e:
         print(f"⚠️ 無法取得 Java 資料庫現有分數 (Spring Boot 可能未啟動): {e}")
 
@@ -165,7 +188,8 @@ def analyze():
         "history_highs": highs,     
         "history_lows": lows,
         "history_volumes": volumes,  
-        "sentiment_score": real_score
+        "sentiment_score": real_score,
+        "ai_prediction": ai_prediction
     }
     
     stock_cache[code] = result
@@ -194,17 +218,20 @@ def sync_news():
                 print(f"🎯 {code} 今日已有深度分析報告，跳過爬蟲。")
                 avg_score = java_data.get("averageSentimentScore")
                 summary_text = java_data.get("overallAiSummary")
+                ai_prediction = java_data.get("aiPrediction")
                 
                 news_tasks[code] = {
                     "status": "completed",
                     "avg_sentiment": avg_score,
-                    "ai_summary": summary_text
+                    "ai_summary": summary_text,
+                    "ai_prediction": ai_prediction
                 }
                 return jsonify({
                     "status": "completed", 
                     "message": "今日深度報告已存在，直接載入快取數據",
                     "avg_sentiment": avg_score,
-                    "ai_summary": summary_text
+                    "ai_summary": summary_text,
+                    "ai_prediction": ai_prediction
                 })
             else:
                 print(f"📝 {code} 目前僅有模板報告或資料未完全 (Type: {report_type})，準備執行深度 AI 分析...")
@@ -262,10 +289,28 @@ def sync_news():
             # 傳遞股票名稱
             send_report_to_springboot(stock_id, stock_name, avg_score, gemini_summary)
             
+            # 💡 [即時聯動 ML 預測]：當新聞情緒分析報告完成後，立即背景觸發預測更新
+            try:
+                from ml_inference import predict_stock
+                predict_stock(stock_id, stock_name=stock_name)
+                print(f"⚡ [Background] {stock_id} 情緒報告完成，已連動更新 ML 即時預測！")
+            except Exception as pe:
+                print(f"⚠️ [Background] 連動 ML 預測失敗: {pe}")
+            
+            # 從 Spring Boot 取得最新被融合修正後的預測結果以更新前端 UI
+            ai_prediction = None
+            try:
+                java_res = requests.get(f"http://localhost:8080/api/stocks/{stock_id}", timeout=2)
+                if java_res.status_code == 200:
+                    ai_prediction = java_res.json().get("aiPrediction", None)
+            except Exception as e:
+                print(f"⚠️ [Background] 獲取最新即時預測失敗: {e}")
+
             news_tasks[stock_id] = {
                 "status": "completed",
                 "avg_sentiment": avg_score,
-                "ai_summary": gemini_summary
+                "ai_summary": gemini_summary,
+                "ai_prediction": ai_prediction
             }
             print(f"✨ [Background] {stock_id} 新聞處理完成！")
         except Exception as e:
@@ -347,4 +392,4 @@ def generate_ai():
         return jsonify({"error": "雲端 AI 服務暫時無法連線，報告生成失敗。請檢查您的 API 金鑰狀態或網路環境。"}), 502
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000, threaded=True)
+    app.run(debug=True, use_reloader=False, port=5000, threaded=True)

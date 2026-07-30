@@ -5,6 +5,7 @@
  */
 let stockChart;          // 儲存 Chart.js 的圖表實例（Instance），以便後續銷毀並重建圖表
 let currentStockCode = ''; // 💡 核心修正：將初始追蹤代碼設為空字串，完全移除預設股票
+let isSearching = false;   // 💡 新增：全域變數，防止重複與並行搜尋導致狀態衝突
 
 if (typeof Chart !== 'undefined') {
     const financialPlugin = window['chartjs-chart-financial'];
@@ -34,6 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('stockSearch').addEventListener('keypress', (e) => {
         // 當使用者在搜尋框內按下 'Enter' 鍵時，觸發新股票的資料讀取流
         if (e.key === 'Enter') {
+            e.preventDefault(); // 💡 阻止預設行為 (防禦某些瀏覽器下按下 Enter 自動重寫/刷頁面)
             const inputCode = e.target.value.trim();
             if (inputCode) {
                 // 如果在自選股或熱門股頁面進行搜尋，自動切回市場總覽以利觀看圖表
@@ -200,6 +202,22 @@ function initDashboardState() {
     document.getElementById('sentVal').innerText = "0 / 100";
     document.getElementById('aiSummary').innerText = "等待搜尋股票數據...";
     
+    // 重設預測卡片資訊
+    const predictValEl = document.getElementById('predictVal');
+    if (predictValEl) {
+        predictValEl.innerText = "待搜尋股票";
+        predictValEl.style.color = "#64748b";
+    }
+    const predictProbEl = document.getElementById('predictProb');
+    if (predictProbEl) {
+        predictProbEl.innerText = "--%";
+        predictProbEl.style.color = "#64748b";
+    }
+    const predictBadgeEl = document.getElementById('predictBadge');
+    if (predictBadgeEl) {
+        predictBadgeEl.style.display = "none";
+    }
+    
     // 重設最愛心型圖示
     if (typeof updateFavoriteIcon === 'function') {
         updateFavoriteIcon(false);
@@ -213,11 +231,81 @@ function initDashboardState() {
 }
 
 /**
+ * 💡 新增：統一更新機器學習預測卡片 UI 的輔助函式
+ */
+function updatePredictionUI(pred) {
+    const predictValEl = document.getElementById('predictVal');
+    const predictProbEl = document.getElementById('predictProb');
+    const predictBadgeEl = document.getElementById('predictBadge');
+    
+    if (pred) {
+        let signalText = "中立觀望";
+        let signalColor = "#64748b";
+        if (pred.tradeSignal === "STRONG_BUY") {
+            signalText = "強烈買進";
+            signalColor = "#f87171";
+        } else if (pred.tradeSignal === "BUY") {
+            signalText = "偏多";
+            signalColor = "#fca5a5";
+        } else if (pred.tradeSignal === "HOLD") {
+            signalText = "中立觀望";
+            signalColor = "#94a3b8";
+        } else if (pred.tradeSignal === "SELL") {
+            signalText = "偏空";
+            signalColor = "#86efac";
+        } else if (pred.tradeSignal === "STRONG_SELL") {
+            signalText = "強烈賣出";
+            signalColor = "#4ade80";
+        }
+        
+        if (predictValEl) {
+            predictValEl.innerText = signalText;
+            predictValEl.style.color = signalColor;
+        }
+        
+        if (predictProbEl) {
+            const upProbVal = parseFloat(pred.upProbability).toFixed(1);
+            predictProbEl.innerText = `${upProbVal}%`;
+            predictProbEl.style.color = signalColor;
+        }
+    } else {
+        if (predictValEl) {
+            predictValEl.innerText = "暫無預測數據";
+            predictValEl.style.color = "#64748b";
+        }
+        if (predictProbEl) {
+            predictProbEl.innerText = "--%";
+            predictProbEl.style.color = "#64748b";
+        }
+    }
+    
+    if (predictBadgeEl) {
+        if (pred && pred.isSentimentFused === true) {
+            predictBadgeEl.className = "badge-ai";
+            predictBadgeEl.innerText = "💡 綜合預測 (已融合 AI 新聞輿情)";
+            predictBadgeEl.title = "此預測已結合 5 年技術指標大數據與最新 BERT 新聞情緒偏離值動態修正。";
+            predictBadgeEl.style.display = "inline-block";
+        } else {
+            predictBadgeEl.className = "badge-tech";
+            predictBadgeEl.innerText = "📊 量化預測 (純技術指標分析)";
+            predictBadgeEl.title = "此預測基於 5 年技術指標大數據進行預測。";
+            predictBadgeEl.style.display = "inline-block";
+        }
+    }
+}
+
+/**
  * ============================================================================
  * 第一階段：抓取基礎資料 (歷史價格、本地端 FinBERT 情感分數)
  * ============================================================================
  */
 async function fetchStockData(code) {
+    if (isSearching) {
+        console.warn("⚠️ 搜尋任務正在進行中，忽略重複請求。");
+        return;
+    }
+    isSearching = true;
+
     // 同步更新當前全域控制的股票代碼，確保第二階段按鈕能拿到正確的代碼
     currentStockCode = code;
     
@@ -229,9 +317,12 @@ async function fetchStockData(code) {
     aiAdvice.style.display = 'none'; // 隱藏前次的 AI 建議框
     aiAdvice.innerHTML = '';        // 清空前次的 AI 內容
 
+    // 💡 新增：提供正在進行即時預測/動態訓練的視覺提示，引導使用者等待
+    document.getElementById('displayName').innerText = `🔍 正在擷取 ${code} 數據與進行即時預測中...`;
+
     try {
-        // 發送 HTTP GET 請求至後端第一階段 API (此階段純粹運行爬蟲與本地端權重模型，速度極快)
-        const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${code}`);
+        // 發送 HTTP GET 請求至後端第一階段 API (此階段與 Python 串接，包含動態模型訓練，加入時間戳記防止快取)
+        const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${code}&_t=${new Date().getTime()}`);
         const data = await response.json();
         
         // 檢查 HTTP 狀態碼，如果後端回傳 404 等非 ok 狀態，直接拋出錯誤進入 catch
@@ -246,9 +337,9 @@ async function fetchStockData(code) {
         // 【更新 UI 元素 3】：更新數字文字顯示
         document.getElementById('sentVal').innerText = data.sentiment_score + " / 100";
         
-        // 將後端回傳的歷史收盤價與交易量陣列同步傳入繪圖引擎
-        renderChart(data.history_dates, data.history_prices, data.history_volumes);
-        
+        // 【更新 UI 元素 4】：更新 ML 預測與雙軌註記標籤
+        updatePredictionUI(data.ai_prediction);
+
         // 💡 [新增修改]：將後端回傳的 OHLC (開、高、低、收) 與成交量資料傳入全新的 K 線圖繪製引擎
         renderChart(
             data.history_dates || [], 
@@ -263,8 +354,10 @@ async function fetchStockData(code) {
         if (typeof checkFavoriteStatus === 'function') {
             checkFavoriteStatus(code);
         }
+        isSearching = false;
         
     } catch (error) {
+        isSearching = false;
         // 錯誤控制安全機制：如遇網路斷線或無此股票，如實呈年在網頁畫面上並恢復初始 UI
         console.error("Fetch Error:", error);
         initDashboardState();
@@ -298,6 +391,9 @@ async function fetchAiReport(code) {
             console.log("🚀 快取命中！直接載入今日分析數據。");
             document.getElementById('sentFill').style.width = startData.avg_sentiment + '%'; 
             document.getElementById('sentVal').innerText = startData.avg_sentiment + " / 100";
+            if (startData.ai_prediction) {
+                updatePredictionUI(startData.ai_prediction);
+            }
             // 模擬已完成的結果供階段 3 使用
             var finalSyncResult = {
                 avg_sentiment: startData.avg_sentiment,
@@ -324,6 +420,10 @@ async function fetchAiReport(code) {
                     // 即時更新 UI 上的情感分數
                     document.getElementById('sentFill').style.width = statusData.avg_sentiment + '%'; 
                     document.getElementById('sentVal').innerText = statusData.avg_sentiment + " / 100";
+                    // 💡 同步更新預測卡片 UI (融合情感後的預測機率與信號)
+                    if (statusData.ai_prediction) {
+                        updatePredictionUI(statusData.ai_prediction);
+                    }
                 } else if (statusData.status === 'error') {
                     throw new Error(statusData.message || "背景分析發生錯誤");
                 }

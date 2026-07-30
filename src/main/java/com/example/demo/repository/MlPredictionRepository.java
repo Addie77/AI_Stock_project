@@ -12,4 +12,6 @@ public interface MlPredictionRepository extends JpaRepository<MlPrediction, Long
     // findFirstBy -> 只抓第一筆 (LIMIT 1)
     // 條件：股票代號，並依照預測目標日期排序，抓最新的
     Optional<MlPrediction> findFirstByStock_StockIdOrderByTargetDateDesc(String stockId);
+
+    Optional<MlPrediction> findByStock_StockIdAndTargetDate(String stockId, java.time.LocalDate targetDate);
 }

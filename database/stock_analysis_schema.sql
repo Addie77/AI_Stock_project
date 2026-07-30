@@ -27,7 +27,7 @@ CREATE TABLE `ml_prediction` (
   `stock_id` varchar(10) COLLATE utf8mb4_unicode_ci NOT NULL,
   `target_date` date NOT NULL,
   `up_probability` decimal(5,2) DEFAULT NULL,
-  `trade_signal` varchar(10) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `trade_signal` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   PRIMARY KEY (`predict_id`),
   KEY `stock_id` (`stock_id`),
   CONSTRAINT `ml_prediction_ibfk_1` FOREIGN KEY (`stock_id`) REFERENCES `stock` (`stock_id`)

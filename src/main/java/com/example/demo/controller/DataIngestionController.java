@@ -7,6 +7,9 @@ import com.example.demo.repository.StockRepository;
 import org.springframework.web.bind.annotation.*;
 import com.example.demo.entity.StockAnalysisReport; // 加入這行
 import com.example.demo.repository.StockAnalysisReportRepository; // 加入這行
+import com.example.demo.entity.MlPrediction;
+import com.example.demo.repository.MlPredictionRepository;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 import java.time.LocalDateTime;
@@ -19,11 +22,13 @@ public class DataIngestionController {
     private final StockRepository stockRepo;
     private final NewsSentimentRepository newsRepo;
     private final StockAnalysisReportRepository reportRepo;
+    private final MlPredictionRepository mlRepo;
 
-    public DataIngestionController(StockRepository stockRepo, NewsSentimentRepository newsRepo,  StockAnalysisReportRepository reportRepo) {
+    public DataIngestionController(StockRepository stockRepo, NewsSentimentRepository newsRepo, StockAnalysisReportRepository reportRepo, MlPredictionRepository mlRepo) {
         this.stockRepo = stockRepo;
         this.newsRepo = newsRepo;
         this.reportRepo = reportRepo;
+        this.mlRepo = mlRepo;
     }
 
     // 接收 Python 發送的 POST 請求
@@ -127,5 +132,44 @@ public class DataIngestionController {
 
          return "成功：已儲存 " + stockId + " 的 AI 綜合分析報告！";
 
+    }
+
+    @PostMapping("/prediction")
+    public String receivePredictionData(@RequestBody Map<String, Object> payload) {
+        String stockId = (String) payload.get("stockId");
+        Stock stock = stockRepo.findById(stockId).orElse(null);
+        String stockNameFromPython = (String) payload.getOrDefault("stockName", "自動新增股票");
+        if (stock == null) {
+            stock = new Stock();
+            stock.setStockId(stockId);
+            stock.setStockName(stockNameFromPython);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("📝 已自動註冊新股票(由預測觸發)：" + stockNameFromPython + " (" + stockId + ")");
+        } else if ("未知股票".equals(stock.getStockName()) || "自動新增股票".equals(stock.getStockName())) {
+            stock.setStockName(stockNameFromPython);
+            stock.setUpdateTime(LocalDateTime.now());
+            stockRepo.save(stock);
+            System.out.println("🔄 已修正股票名稱(由預測觸發)：" + stockNameFromPython + " (" + stockId + ")");
+        }
+
+        LocalDate targetDate = LocalDate.parse((String) payload.get("targetDate"));
+        
+        // 檢查該日期該個股是否已存在預測，存在就覆蓋更新，不存在就新增
+        MlPrediction prediction = mlRepo.findByStock_StockIdAndTargetDate(stockId, targetDate).orElse(null);
+        if (prediction == null) {
+            prediction = new MlPrediction();
+            prediction.setStock(stock);
+            prediction.setTargetDate(targetDate);
+        }
+
+        Number upProb = (Number) payload.get("upProbability");
+        prediction.setUpProbability(BigDecimal.valueOf(upProb.doubleValue()));
+        prediction.setTradeSignal((String) payload.get("tradeSignal"));
+        Boolean isSentimentFused = (Boolean) payload.getOrDefault("isSentimentFused", false);
+        prediction.setIsSentimentFused(isSentimentFused);
+
+        mlRepo.save(prediction);
+        return "成功：已儲存 " + stockId + " 在 " + targetDate + " 的 ML 預測！";
     }
 }

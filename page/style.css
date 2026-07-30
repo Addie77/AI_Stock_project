@@ -606,3 +606,15 @@ header {
         grid-template-columns: 1fr;
     }
 }
+
+/* 💡 整合新增：AI預測與純技術預測徽章樣式 */
+.badge-ai {
+    background: rgba(56, 189, 248, 0.15) !important;
+    color: #38bdf8 !important;
+    border: 1px solid rgba(56, 189, 248, 0.4) !important;
+}
+.badge-tech {
+    background: rgba(148, 163, 184, 0.15) !important;
+    color: #94a3b8 !important;
+    border: 1px solid rgba(148, 163, 184, 0.3) !important;
+}

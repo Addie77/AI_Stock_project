@@ -25,8 +25,11 @@ public class MlPrediction {
     @Column(name = "up_probability", precision = 5, scale = 2)
     private BigDecimal upProbability;
 
-    @Column(name = "trade_signal", length = 10)
+    @Column(name = "trade_signal", length = 20)
     private String tradeSignal;
+
+    @Column(name = "is_sentiment_fused")
+    private Boolean isSentimentFused;
 
     public Long getPredictId() { return predictId; }
     public void setPredictId(Long predictId) { this.predictId = predictId; }
@@ -38,4 +41,6 @@ public class MlPrediction {
     public void setUpProbability(BigDecimal upProbability) { this.upProbability = upProbability; }
     public String getTradeSignal() { return tradeSignal; }
     public void setTradeSignal(String tradeSignal) { this.tradeSignal = tradeSignal; }
+    public Boolean getIsSentimentFused() { return isSentimentFused; }
+    public void setIsSentimentFused(Boolean isSentimentFused) { this.isSentimentFused = isSentimentFused; }
 }
