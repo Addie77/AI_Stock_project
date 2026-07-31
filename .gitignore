@@ -57,5 +57,6 @@ gemini.md
 .env
 
 # Verbatim Session & Cache
-verbatim/chrome_profile/
-verbatim/verbatim_session.json
+python_service/verbatim/chrome_profile/
+python_service/verbatim/verbatim_session.json
+**/verbatim_session.json
