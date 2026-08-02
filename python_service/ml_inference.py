@@ -182,7 +182,7 @@ def get_sentiment_baseline_and_today(stock_id):
         today_score = None
         conn = None
         try:
-            conn = pymysql.connect(**DB_CONFIG)
+            conn = pymysql.connect(**DB_CONFIG)  # type: ignore
             cursor = conn.cursor()
             # 優先讀取今天產生的 AI 報告中記錄的平均分數
             query = "SELECT avg_sentiment FROM stock_analysis_report WHERE stock_id = %s AND analysis_date = CURDATE()"
