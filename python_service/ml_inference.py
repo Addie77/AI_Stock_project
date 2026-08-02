@@ -83,7 +83,8 @@ def get_sentiment_baseline_and_today(stock_id):
     """
     Read sentiment baseline (mean & std dev) and today's score directly from 股票紀錄.xlsx.
     """
-    excel_path = r"c:\Users\88696\OneDrive\桌面\AI_Stock_project\股票紀錄.xlsx"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    excel_path = os.path.abspath(os.path.join(current_dir, "..", "股票紀錄.xlsx"))
     if not os.path.exists(excel_path):
         print(f"⚠️ 找不到 Excel 檔案: {excel_path}")
         return None, None, None
