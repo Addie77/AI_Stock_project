@@ -17,15 +17,67 @@ try:
 except AttributeError:
     pass
 
-# DB Connection Config
-DB_CONFIG = {
-    "host": "localhost",
-    "user": "root",
-    "password": "addie20041124",
-    "database": "stock_analysis",
-    "port": 3306,
-    "charset": "utf8mb4"
-}
+# DB Connection Config (Loaded dynamically from Spring Boot's application.properties to prevent security leaks)
+def load_db_config_from_properties():
+    config = {
+        "host": "localhost",
+        "user": "root",
+        "password": "",
+        "database": "stock_analysis",
+        "port": 3306,
+        "charset": "utf8mb4"
+    }
+    
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.dirname(current_dir)
+    properties_path = os.path.join(project_root, "src", "main", "resources", "application.properties")
+    
+    if not os.path.exists(properties_path):
+        print(f"⚠️ 找不到 Java properties 設定檔: {properties_path}，使用預設連線設定。")
+        return config
+        
+    try:
+        properties = {}
+        with open(properties_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or line.startswith("!"):
+                    continue
+                if "=" in line:
+                    key, val = line.split("=", 1)
+                    # Handle line continuation backslashes
+                    val = val.rstrip("\\").strip()
+                    properties[key.strip()] = val
+                    
+        # Parse DB credentials
+        if "spring.datasource.username" in properties:
+            config["user"] = properties["spring.datasource.username"]
+        if "spring.datasource.password" in properties:
+            config["password"] = properties["spring.datasource.password"]
+            
+        # Parse JDBC URL: jdbc:mysql://host:port/database_name?parameters...
+        jdbc_url = properties.get("spring.datasource.url", "")
+        if jdbc_url.startswith("jdbc:mysql://"):
+            conn_part = jdbc_url[len("jdbc:mysql://"):]
+            main_part = conn_part.split("?")[0]
+            if "/" in main_part:
+                host_port, db_name = main_part.split("/", 1)
+                config["database"] = db_name.strip()
+                if ":" in host_port:
+                    host, port = host_port.split(":", 1)
+                    config["host"] = host.strip()
+                    try:
+                        config["port"] = int(port.strip())
+                    except ValueError:
+                        pass
+                else:
+                    config["host"] = host_port.strip()
+    except Exception as e:
+        print(f"⚠️ 讀取/解析 application.properties 發生錯誤: {e}，將使用預設或部分解析的設定。")
+        
+    return config
+
+DB_CONFIG = load_db_config_from_properties()
 
 MODELS_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".models")
 
