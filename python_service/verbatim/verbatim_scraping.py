@@ -335,9 +335,9 @@ def verbatim_scraping(query):
             
             # 欄位完美對齊加工：將這場法說會的所有項目打平，包裝成符合新聞的 4 欄位結構
             content = detail_data.get('content_parsed', {})
-            for topic in content.get('memo', []):
+            for topic_idx, topic in enumerate(content.get('memo', []), start=0):
                 heading = topic.get('zh_heading') or topic.get('heading', '未分類')
-                for sub_item in topic.get('items', []):
+                for item_idx, sub_item in enumerate(topic.get('items', []), start=0):
                     zh_text = sub_item.get('translate', {}).get('zh', '').strip()
                     en_text = sub_item.get('text', '').strip()
                     
@@ -347,11 +347,13 @@ def verbatim_scraping(query):
                         cleaned_text = target_text.lstrip("• ").strip()
                         if cleaned_text:
                             # ☯️ 完美對齊新聞的 4 個核心欄位
+                            # 💡 方案一：結合 transcript_id, topic_idx, item_idx 產生唯一 URL 避過去重機制
+                            url_unique = f"https://www.alphamemo.ai/free-transcripts?id={t_id}&topic={topic_idx}&item={item_idx}"
                             verbatim_news_results.append({
                                 "title": f"【法說會摘要-{stock_name}_{heading}】",
                                 "text": cleaned_text,
                                 "time": audio_date.replace("-", "/"),  # 對齊 Yahoo 的 YYYY/MM/DD 格式
-                                "link": "https://www.alphamemo.ai/free-transcripts"
+                                "link": url_unique
                             })
             print(f"   ✅ 已成功將該場次的細項扁平化對齊，目前整合容器內共 {len(verbatim_news_results)} 條。")
             print("-" * 50)
