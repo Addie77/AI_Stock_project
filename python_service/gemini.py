@@ -33,8 +33,8 @@ def gemini_generate_with_retry(client, model, contents, task_label="未指定任
         return client.models.generate_content(model=model, contents=contents, config=config)
     return client.models.generate_content(model=model, contents=contents)
 
-# 💡 模組化解耦匯入
-from stock import get_stock_historical_data
+# 💡 模組化解耦匯入 (包含新增的 get_trending_stocks)
+from stock import get_stock_historical_data, get_trending_stocks
 from news_Scraping.news import run_full_news_pipeline
 from api_sender import send_news_to_springboot, send_report_to_springboot
 
@@ -54,6 +54,21 @@ client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 stock_cache = {}
 ai_cache = {}
 news_tasks = {}
+
+# ============================================================================
+# 🔥 API 路由 0：熱門股票榜單 (Top 5)
+# ============================================================================
+@app.route('/api/market/trending_stocks', methods=['GET'])
+@app.route('/api/trending_stocks', methods=['GET'])
+def trending_stocks():
+    try:
+        data = get_trending_stocks()
+        if data and data.get("success"):
+            return jsonify(data)
+        return jsonify({"success": False, "error": "無法獲取熱門股票數據"}), 500
+    except Exception as e:
+        print(f"❌ 取得熱門榜單失敗: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
 
 # ============================================================================
 # --- 2. API 路由 1：輸出真實歷史數據（加入 NaN 價格清洗防禦） ---
@@ -114,11 +129,10 @@ def analyze():
     if not dates or not raw_prices:
         return jsonify({"error": "官方數據格式不完整，無法解析日期或價格"}), 500
 
-    # 💡 核心修正 1：後端價格清洗防線 (防禦 '--' 導致前端折線圖隱形)
+    # 💡 核心修正 1：後端價格清洗防線
     prices = []
     last_valid_price = None
     
-    # 先找出第一個合法的價格當作初始備援值
     for p in raw_prices:
         try:
             clean_p = float(str(p).replace(',', '').strip())
@@ -130,7 +144,6 @@ def analyze():
     if last_valid_price is None:
         last_valid_price = 0.0
 
-    # 逐日清洗價格
     for p in raw_prices:
         try:
             clean_p = float(str(p).replace(',', '').strip())
@@ -165,20 +178,17 @@ def analyze():
 
     current_price = prices[-1]           
 
-    # 💡 智慧防禦：讀取 Spring Boot 資料庫分數，預設回補 0 分
     real_score = 0
     ai_prediction = None
     try:
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
         if java_res.status_code == 200:
             java_data = java_res.json()
-            # 優先從 Java 獲取分數，若無則預設為 0
             real_score = java_data.get("averageSentimentScore", 0)
             ai_prediction = java_data.get("aiPrediction", None)
     except Exception as e:
         print(f"⚠️ 無法取得 Java 資料庫現有分數 (Spring Boot 可能未啟動): {e}")
 
-    # 封裝標準 JSON 回應包
     result = {
         "name": name,
         "current_price": current_price,
@@ -211,8 +221,6 @@ def sync_news():
         java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
         if java_res.status_code == 200:
             java_data = java_res.json()
-            
-            # 💡 方案 B 關鍵邏輯：只有當報告存在且類型為 'DEEP_AI' 時，才跳過爬蟲
             report_type = java_data.get("reportType")
             if java_data.get("averageSentimentScore") and java_data.get("overallAiSummary") and report_type == "DEEP_AI":
                 print(f"🎯 {code} 今日已有深度分析報告，跳過爬蟲。")
@@ -246,7 +254,6 @@ def sync_news():
     def background_sync(stock_id):
         print(f"📡 [Background] 開始處理 {stock_id} 的新聞同步流程...")
         try:
-            # 💡 新增：從快取中取得股票名稱
             stock_name = stock_cache.get(stock_id, {}).get('name', '未知股票')
 
             analyzed_data = run_full_news_pipeline(stock_id)
@@ -254,7 +261,6 @@ def sync_news():
                 news_tasks[stock_id] = {"status": "error", "message": "未能獲取新聞資料"}
                 return
             
-            # 傳遞股票名稱
             send_news_to_springboot(stock_id, stock_name, analyzed_data)
 
             scores = [item.get('sentiment_result', {}).get('Composite_Score', 50) for item in analyzed_data]
@@ -262,7 +268,6 @@ def sync_news():
 
             news_text = "\n".join([f"新聞: {n['title']}\n內容: {n['text']}" for n in analyzed_data[:10]])
             
-            # 💡 方案 B 擴充：根據分數決定情緒標籤，並強迫 Gemini 加入總評開頭
             if avg_score >= 80:
                 tag = "【極度樂觀】"
             elif avg_score >= 60:
@@ -278,18 +283,14 @@ def sync_news():
                 f"請分析目前的新聞對股價的潛在影響，給出一段 150 字內的綜合總評。\n"
                 f"【注意】請務必在總評的最開頭加上標籤「{tag}」。"
             )
-            # 使用重試機制呼叫 Gemini
-            # response = gemini_generate_with_retry(client, model="gemini-3-pro-preview", contents=prompt, task_label="新聞總評")  #換模型3，把原本的註解掉
             response = gemini_generate_with_retry(client, model="gemini-2.5-flash", contents=prompt, task_label="新聞總評")
             gemini_summary = response.text.strip()
 
             if stock_id in stock_cache:
                 stock_cache[stock_id]['sentiment_score'] = avg_score
 
-            # 傳遞股票名稱
             send_report_to_springboot(stock_id, stock_name, avg_score, gemini_summary)
             
-            # 💡 [即時聯動 ML 預測]：當新聞情緒分析報告完成後，立即背景觸發預測更新
             try:
                 from ml_inference import predict_stock
                 predict_stock(stock_id, stock_name=stock_name)
@@ -297,7 +298,6 @@ def sync_news():
             except Exception as pe:
                 print(f"⚠️ [Background] 連動 ML 預測失敗: {pe}")
             
-            # 從 Spring Boot 取得最新被融合修正後的預測結果以更新前端 UI
             ai_prediction = None
             try:
                 java_res = requests.get(f"http://localhost:8080/api/stocks/{stock_id}", timeout=2)
@@ -364,10 +364,8 @@ def generate_ai():
     )
 
     try:
-        # 使用重試機制呼叫 Gemini
         response = gemini_generate_with_retry(
             client,
-            # model="gemini-3-pro-preview", #換模型3，把原本的註解掉
             model="gemini-2.5-flash",
             contents=prompt,
             task_label="技術分析報告",
