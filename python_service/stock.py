@@ -15,7 +15,7 @@ def is_pure_stock(code):
     return len(code_str) == 4 and code_str.isdigit()
 
 # ============================================================================
-# 🔥 新增功能：爬取上市 (TWSE) 與上櫃 (TPEx) 前五名 (成交量 / 股價)
+# 🔥 熱門股票 API：爬取上市 (TWSE) 與上櫃 (TPEx) 前五名 (成交量 / 股價)
 # ============================================================================
 def get_trending_stocks():
     """
@@ -37,15 +37,19 @@ def get_trending_stocks():
         if res.status_code == 200:
             data = res.json()
             for item in data:
-                code = str(item.get("Code", "")).strip()
-                name = str(item.get("Name", "")).strip()
+                code = str(item.get("Code") or item.get("code") or "").strip()
+                name = str(item.get("Name") or item.get("name") or "").strip()
 
                 if is_pure_stock(code):
                     try:
-                        vol_raw = str(item.get("TradeVolume", "0")).replace(",", "").strip()
-                        volume = int(float(vol_raw)) // 1000  # 股數換算為張數
+                        # 上市成交量欄位：TradeVolume
+                        vol_val = item.get("TradeVolume") or item.get("Volume") or item.get("TradingShares") or "0"
+                        vol_raw = str(vol_val).replace(",", "").strip()
+                        raw_vol = float(vol_raw) if vol_raw and vol_raw != "--" else 0.0
+                        volume = int(raw_vol // 1000) if raw_vol >= 1000 else int(raw_vol)
 
-                        price_raw = str(item.get("ClosingPrice", "0")).replace(",", "").strip()
+                        price_val = item.get("ClosingPrice") or item.get("Close") or "0"
+                        price_raw = str(price_val).replace(",", "").strip()
                         price = float(price_raw) if price_raw and price_raw != "--" else 0.0
 
                         twse_stocks.append({
@@ -60,7 +64,7 @@ def get_trending_stocks():
         print(f"⚠️ 上市熱門股票抓取失敗: {e}")
 
     # -------------------------------------------------------------------------
-    # 2. 爬取 上櫃股票 (TPEx OpenAPI)
+    # 2. 爬取 上櫃股票 (TPEx OpenAPI) - 💡 修正對齊 TradingShares 欄位
     # -------------------------------------------------------------------------
     try:
         tpex_url = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
@@ -68,15 +72,25 @@ def get_trending_stocks():
         if res.status_code == 200:
             data = res.json()
             for item in data:
-                code = str(item.get("SecuritiesCompanyCode", "")).strip()
-                name = str(item.get("CompanyName", "")).strip()
+                code = str(item.get("SecuritiesCompanyCode") or item.get("Code") or "").strip()
+                name = str(item.get("CompanyName") or item.get("Name") or "").strip()
 
                 if is_pure_stock(code):
                     try:
-                        vol_raw = str(item.get("Volume", "0")).replace(",", "").strip()
-                        volume = int(float(vol_raw)) // 1000  # 股數換算為張數
+                        # 🎯 核心修正：精確對齊櫃買中心官方欄位 TradingShares (成交股數)
+                        vol_val = (
+                            item.get("TradingShares") or 
+                            item.get("TradeVolume") or 
+                            item.get("TradingVolume") or 
+                            item.get("Volume") or 
+                            "0"
+                        )
+                        vol_raw = str(vol_val).replace(",", "").strip()
+                        raw_vol = float(vol_raw) if vol_raw and vol_raw != "--" else 0.0
+                        volume = int(raw_vol // 1000)  # 換算為張數
 
-                        price_raw = str(item.get("Close", "0")).replace(",", "").strip()
+                        price_val = item.get("Close") or item.get("ClosingPrice") or "0"
+                        price_raw = str(price_val).replace(",", "").strip()
                         price = float(price_raw) if price_raw and price_raw != "--" else 0.0
 
                         tpex_stocks.append({
@@ -91,13 +105,15 @@ def get_trending_stocks():
         print(f"⚠️ 上櫃熱門股票抓取失敗: {e}")
 
     # -------------------------------------------------------------------------
-    # 3. 排序並取 Top 5
+    # 3. 排序並取 Top 5 (成交張數排行依據真實張數降冪排序)
     # -------------------------------------------------------------------------
-    twse_top_volume = sorted(twse_stocks, key=lambda x: x["volume"], reverse=True)[:5] if twse_stocks else []
-    twse_top_price = sorted(twse_stocks, key=lambda x: x["price"], reverse=True)[:5] if twse_stocks else []
+    twse_valid = [s for s in twse_stocks if s["volume"] > 0]
+    twse_top_volume = sorted(twse_valid if twse_valid else twse_stocks, key=lambda x: x["volume"], reverse=True)[:5]
+    twse_top_price = sorted(twse_stocks, key=lambda x: x["price"], reverse=True)[:5]
 
-    tpex_top_volume = sorted(tpex_stocks, key=lambda x: x["volume"], reverse=True)[:5] if tpex_stocks else []
-    tpex_top_price = sorted(tpex_stocks, key=lambda x: x["price"], reverse=True)[:5] if tpex_stocks else []
+    tpex_valid = [s for s in tpex_stocks if s["volume"] > 0]
+    tpex_top_volume = sorted(tpex_valid if tpex_valid else tpex_stocks, key=lambda x: x["volume"], reverse=True)[:5]
+    tpex_top_price = sorted(tpex_stocks, key=lambda x: x["price"], reverse=True)[:5]
 
     return {
         "success": True,
@@ -110,7 +126,6 @@ def get_trending_stocks():
             "price": tpex_top_price
         }
     }
-
 
 # ============================================================================
 # 原有功能：歷史行情資料爬蟲
@@ -138,7 +153,6 @@ def get_stock_historical_data(code):
         d = today - datetime.timedelta(days=i * 30)
         months_to_fetch.append(d.strftime("%Y%m01"))
 
-    # --- 嘗試 A：證交所（上市）---
     is_listed = False
     try:
         for date_str in months_to_fetch:
@@ -163,7 +177,6 @@ def get_stock_historical_data(code):
     except Exception as e:
         print(f"ℹ️ 嘗試上市 API 時發生異常 (可能非上市股票): {e}")
 
-    # --- 嘗試 B：櫃買中心（上櫃）---
     if not is_listed:
         try:
             for date_str in months_to_fetch:
@@ -206,7 +219,3 @@ def get_stock_historical_data(code):
     df['市場'] = market_type
 
     return df
-
-if __name__ == "__main__":
-    test_trending = get_trending_stocks()
-    print("✨ 熱門股票抓取測試：", test_trending)
