@@ -809,11 +809,6 @@ async function deleteFavoriteRow(stockId) {
     }
 }
 
-/**
- * ============================================================================
- * 🔥 核心新增：熱門股票抓取與渲染模組 (Live Trending Stocks Module)
- * ============================================================================
- */
 async function fetchLiveTrendingStocks() {
     // 1. 先顯示載入中提示
     const setListLoading = (id) => {
@@ -841,6 +836,9 @@ async function fetchLiveTrendingStocks() {
             // 渲染上櫃 (TPEx)
             renderTrendingList('tpexVolumeList', data.tpex.volume, '張');
             renderTrendingList('tpexPriceList', data.tpex.price, '元');
+
+            // 💡 執行排行第一名個股自動即時預測流程
+            await runTopOnePredictions(data);
         } else {
             throw new Error(data.error || "抓取失敗");
         }
@@ -872,6 +870,11 @@ function renderTrendingList(elementId, stockList, unit) {
             ? `${stock.volume.toLocaleString()} 張` 
             : `$${stock.price.toLocaleString()}`;
 
+        // 💡 第一名時加上預測結果容器的 Placeholder
+        const predPlaceholder = index === 0
+            ? `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>`
+            : '';
+
         return `
             <li onclick="analyzeFromTrending('${stock.code}')">
                 <div>
@@ -880,12 +883,99 @@ function renderTrendingList(elementId, stockList, unit) {
                     <span class="trend-code">${stock.code}</span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 15px;">
+                    ${predPlaceholder}
                     <span style="color: #34d399; font-weight: bold;">${valDisplay}</span>
-                    <button class="trend-action-btn">分析</button>
+                    <button class="trend-action-btn">查看</button>
                 </div>
             </li>
         `;
     }).join('');
+}
+
+// 💡 執行排行第一名個股自動即時預測流程
+async function runTopOnePredictions(data) {
+    const topStocks = [];
+    
+    // 收集四個清單的第一名股票代碼與名稱
+    if (data.twse.volume && data.twse.volume.length > 0) {
+        topStocks.push({ code: data.twse.volume[0].code, name: data.twse.volume[0].name, listId: 'twseVolumeList' });
+    }
+    if (data.twse.price && data.twse.price.length > 0) {
+        topStocks.push({ code: data.twse.price[0].code, name: data.twse.price[0].name, listId: 'twsePriceList' });
+    }
+    if (data.tpex.volume && data.tpex.volume.length > 0) {
+        topStocks.push({ code: data.tpex.volume[0].code, name: data.tpex.volume[0].name, listId: 'tpexVolumeList' });
+    }
+    if (data.tpex.price && data.tpex.price.length > 0) {
+        topStocks.push({ code: data.tpex.price[0].code, name: data.tpex.price[0].name, listId: 'tpexPriceList' });
+    }
+
+    if (topStocks.length === 0) return;
+
+    // 顯示防禦性鎖定畫面遮罩
+    const overlay = document.getElementById('aiAnalysisOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    try {
+        // 去重股票代碼，以避免重複預測同檔股票
+        const uniqueCodes = [...new Set(topStocks.map(s => s.code))];
+        const predictionResults = {};
+
+        // 並行請求所有的預測數據 (由 Flask API 判斷快取或執行即時計算)
+        await Promise.all(uniqueCodes.map(async (code) => {
+            const stockInfo = topStocks.find(s => s.code === code);
+            try {
+                const res = await fetch(`http://127.0.0.1:5000/api/market/get_or_run_prediction?code=${code}&name=${encodeURIComponent(stockInfo.name)}&_t=${new Date().getTime()}`);
+                if (!res.ok) throw new Error("預測 API 錯誤");
+                const predData = await res.json();
+                if (predData.success) {
+                    predictionResults[code] = predData;
+                }
+            } catch (err) {
+                console.error(`無法獲取股票 ${code} 的自動預測:`, err);
+            }
+        }));
+
+        // 更新前端對應看板的第一名 HTML 標籤
+        topStocks.forEach(stock => {
+            const pred = predictionResults[stock.code];
+            const badgeEl = document.getElementById(`pred-${stock.listId}-top1`);
+            if (badgeEl && pred) {
+                // 決定交易訊號樣式與文字
+                let signalText = "中立";
+                let signalClass = "top-pred-hold";
+                
+                if (pred.trade_signal === "STRONG_BUY") {
+                    signalText = "強買";
+                    signalClass = "top-pred-strong-buy";
+                } else if (pred.trade_signal === "BUY") {
+                    signalText = "偏多";
+                    signalClass = "top-pred-buy";
+                } else if (pred.trade_signal === "HOLD") {
+                    signalText = "中立";
+                    signalClass = "top-pred-hold";
+                } else if (pred.trade_signal === "SELL") {
+                    signalText = "偏空";
+                    signalClass = "top-pred-sell";
+                } else if (pred.trade_signal === "STRONG_SELL") {
+                    signalText = "強賣";
+                    signalClass = "top-pred-strong-sell";
+                }
+
+                badgeEl.innerText = `明日 ${signalText} (${pred.up_probability.toFixed(1)}%)`;
+                badgeEl.className = `top-pred-badge ${signalClass}`;
+                badgeEl.style.display = 'inline-block';
+                badgeEl.title = pred.is_sentiment_fused 
+                    ? "此預測已融合 BERT 輿情分析與技術面指標" 
+                    : "此預測為純技術面量化指標分析";
+            }
+        });
+    } catch (e) {
+        console.error("執行 Top 1 熱門預測流程失敗:", e);
+    } finally {
+        // 關閉畫面鎖定遮罩
+        if (overlay) overlay.style.display = 'none';
+    }
 }
 
 /**

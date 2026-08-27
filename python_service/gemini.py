@@ -71,6 +71,79 @@ def trending_stocks():
         return jsonify({"success": False, "error": str(e)}), 500
 
 # ============================================================================
+# 🔥 API 路由 0.5：取得或即時生成排行第一名股票的 ML 預測結果 (去重防禦)
+# ============================================================================
+@app.route('/api/market/get_or_run_prediction', methods=['GET'])
+def get_or_run_prediction():
+    code = request.args.get('code', '').strip().zfill(4)
+    name = request.args.get('name', '').strip()
+    if not code:
+        return jsonify({"success": False, "error": "缺少股票代碼"}), 400
+
+    import pymysql
+    from ml_inference import DB_CONFIG, predict_stock
+    
+    conn = None
+    try:
+        conn = pymysql.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        
+        # 查詢今日是否有預測結果
+        query = """
+            SELECT up_probability, trade_signal, is_sentiment_fused 
+            FROM ml_prediction 
+            WHERE stock_id = %s AND target_date = CURDATE()
+            ORDER BY predict_id DESC LIMIT 1
+        """
+        cursor.execute(query, (code,))
+        row = cursor.fetchone()
+        
+        if row:
+            up_prob, signal, is_sentiment_fused = row
+            print(f"🎯 讀取快取：{code} 今日已存在預測資料。")
+            return jsonify({
+                "success": True,
+                "code": code,
+                "name": name,
+                "cached": True,
+                "up_probability": float(up_prob) if up_prob is not None else 0.0,
+                "trade_signal": signal,
+                "is_sentiment_fused": bool(is_sentiment_fused)
+            })
+            
+        # 若今日尚未預測，則即時執行預測
+        print(f"🤖 {code} 今日無預測紀錄，開始進行即時預測推理...")
+        
+        # 呼叫 ml_inference.py 中的 predict_stock
+        success = predict_stock(code, stock_name=name)
+        if not success:
+            return jsonify({"success": False, "error": f"股票 {code} 預測執行失敗"}), 500
+            
+        # 重新從資料庫查詢最新寫入的預測資料
+        cursor.execute(query, (code,))
+        row = cursor.fetchone()
+        if row:
+            up_prob, signal, is_sentiment_fused = row
+            return jsonify({
+                "success": True,
+                "code": code,
+                "name": name,
+                "cached": False,
+                "up_probability": float(up_prob) if up_prob is not None else 0.0,
+                "trade_signal": signal,
+                "is_sentiment_fused": bool(is_sentiment_fused)
+            })
+        
+        return jsonify({"success": False, "error": "預測已執行但無法從資料庫撈取結果"}), 500
+        
+    except Exception as e:
+        print(f"❌ 處理熱門股票 {code} 預測失敗: {e}")
+        return jsonify({"success": False, "error": str(e)}), 500
+    finally:
+        if conn:
+            conn.close()
+
+# ============================================================================
 # --- 2. API 路由 1：輸出真實歷史數據（加入 NaN 價格清洗防禦） ---
 # ============================================================================
 @app.route('/api/analyze', methods=['GET'])

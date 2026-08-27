@@ -192,7 +192,15 @@
     </div>
     
     <script src="script.js"></script>
-    
+    <!-- 💡 新增：AI 預測分析鎖定畫面遮罩 -->
+    <div id="aiAnalysisOverlay" class="analysis-overlay" style="display: none;">
+        <div class="analysis-spinner-box">
+            <div class="analysis-spinner"></div>
+            <p class="analysis-text">🤖 AI 智能預測計算中，請稍候...</p>
+            <p class="analysis-subtext">正在進行技術面特徵工程與模型推理...</p>
+        </div>
+    </div>
+
     <!-- 控制小螢幕漢堡選單開關的輕量 JS -->
     <script>
         const menuToggleBtn = document.getElementById('menuToggleBtn');
