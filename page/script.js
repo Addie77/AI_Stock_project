@@ -497,13 +497,13 @@ function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [],
                     label: '股票 K 線',
                     data: candlestickData,
                     color: {
-                        up: '#ef4444',
-                        down: '#22c55e',
+                        up: '#22c55e', // 套件內部 up/down 映射與台股習慣相反，在此對調以實現漲紅跌綠
+                        down: '#ef4444',
                         unchanged: '#94a3b8'
                     },
                     borderColor: {
-                        up: '#ef4444',
-                        down: '#22c55e',
+                        up: '#22c55e',
+                        down: '#ef4444',
                         unchanged: '#94a3b8'
                     },
                     yAxisID: 'y',
