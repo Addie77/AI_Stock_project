@@ -193,7 +193,14 @@ def get_stock_historical_data(code):
                     table_data = data['tables'][0].get('data', [])
                     for row in table_data:
                         dates_list.append(row[0].strip())
-                        volumes_list.append(row[1].strip())
+                        # 💡 櫃買中心 (TPEx) 成交量單位為「千股 (張)」，需乘以 1000 換算成「股」，以與證交所 (TWSE) 的單位一致
+                        raw_vol = row[1].strip().replace(',', '')
+                        try:
+                            vol_in_shares = str(int(raw_vol) * 1000)
+                        except ValueError:
+                            vol_in_shares = row[1].strip()
+                        volumes_list.append(vol_in_shares)
+                        
                         openingprice_list.append(row[3].strip())
                         highprice_list.append(row[4].strip())
                         lowprice_list.append(row[5].strip())
