@@ -26,6 +26,9 @@ public class FavoriteStock {
     @Column(name = "target_price")
     private Double targetPrice;
 
+    @Column(name = "average_cost")
+    private Double averageCost;
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -65,5 +68,13 @@ public class FavoriteStock {
 
     public void setTargetPrice(Double targetPrice) {
         this.targetPrice = targetPrice;
+    }
+
+    public Double getAverageCost() {
+        return averageCost;
+    }
+
+    public void setAverageCost(Double averageCost) {
+        this.averageCost = averageCost;
     }
 }

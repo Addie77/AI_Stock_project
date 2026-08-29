@@ -50,6 +50,10 @@ public class FavoriteStockController {
         if (payload.get("targetPrice") != null) {
             targetPrice = ((Number) payload.get("targetPrice")).doubleValue();
         }
+        Double averageCost = null;
+        if (payload.get("averageCost") != null) {
+            averageCost = ((Number) payload.get("averageCost")).doubleValue();
+        }
 
         if (stockId == null || stockId.trim().isEmpty()) {
             response.put("error", "股票代碼 (stockId) 為必填欄位");
@@ -90,6 +94,7 @@ public class FavoriteStockController {
         favorite.setAddedAt(LocalDateTime.now());
         favorite.setMemo(memo);
         favorite.setTargetPrice(targetPrice);
+        favorite.setAverageCost(averageCost);
 
         favoriteStockRepo.save(favorite);
 
@@ -124,6 +129,10 @@ public class FavoriteStockController {
         if (payload.containsKey("targetPrice")) {
             Number tp = (Number) payload.get("targetPrice");
             favorite.setTargetPrice(tp != null ? tp.doubleValue() : null);
+        }
+        if (payload.containsKey("averageCost")) {
+            Number ac = (Number) payload.get("averageCost");
+            favorite.setAverageCost(ac != null ? ac.doubleValue() : null);
         }
 
         favoriteStockRepo.save(favorite);

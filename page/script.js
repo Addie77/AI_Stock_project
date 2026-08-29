@@ -625,9 +625,11 @@ async function checkFavoriteStatus(code) {
     }
 }
 
+const syncedWatchlistStocks = new Set();
+
 async function loadWatchlist() {
     const container = document.querySelector('.watchlist-card div');
-    if (container) {
+    if (container && (!container.innerHTML.trim() || container.innerHTML.includes('載入自選股中...'))) {
         container.innerHTML = `<div style="text-align: center; padding: 20px; color: #94a3b8;">載入自選股中...</div>`;
     }
     
@@ -636,11 +638,81 @@ async function loadWatchlist() {
         if (!res.ok) throw new Error("無法取得自選股資料");
         const favorites = await res.json();
         renderWatchlist(favorites);
+        
+        // 載入自選股結構後，背景並發請求 Python 服務以獲取即時股價並在前端計算渲染
+        favorites.forEach(fav => {
+            fetchAndRenderWatchlistPrice(fav.stock.stockId, fav.averageCost);
+        });
     } catch (e) {
         console.error("載入自選股失敗:", e);
         if (container) {
             container.innerHTML = `<div style="text-align: center; padding: 20px; color: #f87171;">❌ 載入自選股失敗: ${e.message}</div>`;
         }
+    }
+}
+
+async function fetchAndRenderWatchlistPrice(stockId, averageCost) {
+    try {
+        const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${stockId}&_t=${new Date().getTime()}`);
+        if (!response.ok) throw new Error("無法取得股價");
+        const data = await response.json();
+        
+        const prices = data.history_prices || [];
+        if (prices.length > 0) {
+            const currentPrice = prices[prices.length - 1];
+            document.getElementById(`price-${stockId}`).innerText = currentPrice.toFixed(2);
+            document.getElementById(`price-${stockId}`).setAttribute('data-price', currentPrice);
+            
+            // 計算今日漲跌與漲跌幅
+            if (prices.length >= 2) {
+                const prePrice = prices[prices.length - 2];
+                const change = currentPrice - prePrice;
+                const changePercent = (change / prePrice) * 100;
+                
+                let color = '#e2e8f0';
+                let sign = '';
+                if (change > 0) {
+                    color = '#f87171'; // 台股紅漲
+                    sign = '+';
+                } else if (change < 0) {
+                    color = '#34d399'; // 台股綠跌
+                }
+                
+                // 設定收盤價的顏色
+                document.getElementById(`price-${stockId}`).style.color = color;
+                
+                document.getElementById(`change-${stockId}`).innerHTML = 
+                    `<span style="color: ${color}; font-weight: 700;">${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)</span>`;
+            } else {
+                document.getElementById(`change-${stockId}`).innerText = '--';
+            }
+            
+            // 計算當前報酬率
+            if (averageCost !== null && averageCost !== undefined && averageCost > 0) {
+                const returnPercent = ((currentPrice - averageCost) / averageCost) * 100;
+                let color = '#e2e8f0';
+                let sign = '';
+                if (returnPercent > 0) {
+                    color = '#f87171';
+                    sign = '+';
+                } else if (returnPercent < 0) {
+                    color = '#34d399';
+                }
+                document.getElementById(`return-${stockId}`).innerHTML = 
+                    `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
+            } else {
+                document.getElementById(`return-${stockId}`).innerText = '--';
+            }
+        } else {
+            document.getElementById(`price-${stockId}`).innerText = '--';
+            document.getElementById(`change-${stockId}`).innerText = '--';
+            document.getElementById(`return-${stockId}`).innerText = '--';
+        }
+    } catch (e) {
+        console.error(`獲取自選股 ${stockId} 即時價格失敗:`, e);
+        document.getElementById(`price-${stockId}`).innerText = '❌ 錯誤';
+        document.getElementById(`change-${stockId}`).innerText = '--';
+        document.getElementById(`return-${stockId}`).innerText = '--';
     }
 }
 
@@ -664,9 +736,12 @@ function renderWatchlist(favorites) {
                 <tr>
                     <th>股票代碼</th>
                     <th>股票名稱</th>
+                    <th>最新收盤價</th>
+                    <th>今日漲跌</th>
+                    <th>成本均價 (TWD)</th>
+                    <th>當前報酬率</th>
                     <th>目標價 (TWD)</th>
                     <th>備忘錄</th>
-                    <th>加入時間</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -674,14 +749,21 @@ function renderWatchlist(favorites) {
     `;
 
     favorites.forEach(fav => {
-        const addedDate = new Date(fav.addedAt).toLocaleString('zh-TW', { hour12: false });
         const targetPriceDisplay = fav.targetPrice !== null && fav.targetPrice !== undefined ? fav.targetPrice : '--';
+        const averageCostDisplay = fav.averageCost !== null && fav.averageCost !== undefined ? fav.averageCost : '--';
         const memoDisplay = fav.memo ? fav.memo : '';
         
         html += `
             <tr id="fav-row-${fav.stock.stockId}">
                 <td style="font-weight: 700; color: #38bdf8;">${fav.stock.stockId}</td>
                 <td>${fav.stock.stockName}</td>
+                <td id="price-${fav.stock.stockId}" style="font-weight: 600; color: #f8fafc;">載入中...</td>
+                <td id="change-${fav.stock.stockId}">載入中...</td>
+                <td class="average-cost-cell">
+                    <span class="view-mode">${averageCostDisplay}</span>
+                    <input type="number" step="0.1" class="edit-mode watchlist-input" value="${fav.averageCost || ''}" style="display: none; width: 100px;">
+                </td>
+                <td id="return-${fav.stock.stockId}">載入中...</td>
                 <td class="target-price-cell">
                     <span class="view-mode">${targetPriceDisplay}</span>
                     <input type="number" step="0.1" class="edit-mode watchlist-input" value="${fav.targetPrice || ''}" style="display: none; width: 100px;">
@@ -690,7 +772,6 @@ function renderWatchlist(favorites) {
                     <span class="view-mode">${memoDisplay}</span>
                     <input type="text" class="edit-mode watchlist-input" value="${fav.memo || ''}" style="display: none; width: 180px;">
                 </td>
-                <td style="color: #64748b; font-size: 0.9em;">${addedDate}</td>
                 <td>
                     <button class="action-btn btn-view" onclick="viewFavorite('${fav.stock.stockId}')">查看</button>
                     <button class="action-btn btn-edit edit-btn" onclick="toggleEditRow('${fav.stock.stockId}')">編輯</button>
@@ -740,9 +821,11 @@ async function saveFavoriteRow(stockId) {
     if (!row) return;
     
     const targetPriceInput = row.querySelector('.target-price-cell input').value;
+    const averageCostInput = row.querySelector('.average-cost-cell input').value;
     const memoInput = row.querySelector('.memo-cell input').value;
     
     const targetPrice = targetPriceInput === '' ? null : parseFloat(targetPriceInput);
+    const averageCost = averageCostInput === '' ? null : parseFloat(averageCostInput);
     const memo = memoInput;
 
     try {
@@ -753,7 +836,8 @@ async function saveFavoriteRow(stockId) {
             },
             body: JSON.stringify({
                 memo: memo,
-                targetPrice: targetPrice
+                targetPrice: targetPrice,
+                averageCost: averageCost
             })
         });
         
@@ -762,7 +846,29 @@ async function saveFavoriteRow(stockId) {
         
         if (data.success) {
             row.querySelector('.target-price-cell .view-mode').innerText = targetPrice !== null ? targetPrice : '--';
+            row.querySelector('.average-cost-cell .view-mode').innerText = averageCost !== null ? averageCost : '--';
             row.querySelector('.memo-cell .view-mode').innerText = memo;
+            
+            // 💡 前端即時重算報酬率，不需要重新呼叫 loadWatchlist()
+            const currentPriceAttr = document.getElementById(`price-${stockId}`).getAttribute('data-price');
+            if (currentPriceAttr) {
+                const currentPrice = parseFloat(currentPriceAttr);
+                if (averageCost !== null && averageCost > 0) {
+                    const returnPercent = ((currentPrice - averageCost) / averageCost) * 100;
+                    let color = '#e2e8f0';
+                    let sign = '';
+                    if (returnPercent > 0) {
+                        color = '#f87171';
+                        sign = '+';
+                    } else if (returnPercent < 0) {
+                        color = '#34d399';
+                    }
+                    document.getElementById(`return-${stockId}`).innerHTML = 
+                        `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
+                } else {
+                    document.getElementById(`return-${stockId}`).innerText = '--';
+                }
+            }
             
             const viewElements = row.querySelectorAll('.view-mode');
             const editElements = row.querySelectorAll('.edit-mode');

@@ -85,7 +85,7 @@ def get_or_run_prediction():
     
     conn = None
     try:
-        conn = pymysql.connect(**DB_CONFIG)
+        conn = pymysql.connect(**DB_CONFIG)  # type: ignore
         cursor = conn.cursor()
         
         # 查詢今日是否有預測結果
