@@ -18,9 +18,6 @@ def is_pure_stock(code):
 # 🔥 熱門股票 API：爬取上市 (TWSE) 與上櫃 (TPEx) 前五名 (成交量 / 股價)
 # ============================================================================
 def get_trending_stocks():
-    """
-    動態抓取當日上市與上櫃的成交張數與股價排行 Top 5 (排除 ETF)
-    """
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
@@ -28,9 +25,7 @@ def get_trending_stocks():
     twse_stocks = []
     tpex_stocks = []
 
-    # -------------------------------------------------------------------------
     # 1. 爬取 上市股票 (TWSE OpenAPI)
-    # -------------------------------------------------------------------------
     try:
         twse_url = "https://openapi.twse.com.tw/v1/exchangeReport/STOCK_DAY_ALL"
         res = requests.get(twse_url, headers=headers, verify=False, timeout=10)
@@ -42,7 +37,6 @@ def get_trending_stocks():
 
                 if is_pure_stock(code):
                     try:
-                        # 上市成交量欄位：TradeVolume
                         vol_val = item.get("TradeVolume") or item.get("Volume") or item.get("TradingShares") or "0"
                         vol_raw = str(vol_val).replace(",", "").strip()
                         raw_vol = float(vol_raw) if vol_raw and vol_raw != "--" else 0.0
@@ -63,9 +57,7 @@ def get_trending_stocks():
     except Exception as e:
         print(f"⚠️ 上市熱門股票抓取失敗: {e}")
 
-    # -------------------------------------------------------------------------
-    # 2. 爬取 上櫃股票 (TPEx OpenAPI) - 💡 修正對齊 TradingShares 欄位
-    # -------------------------------------------------------------------------
+    # 2. 爬取 上櫃股票 (TPEx OpenAPI)
     try:
         tpex_url = "https://www.tpex.org.tw/openapi/v1/tpex_mainboard_quotes"
         res = requests.get(tpex_url, headers=headers, verify=False, timeout=10)
@@ -77,7 +69,6 @@ def get_trending_stocks():
 
                 if is_pure_stock(code):
                     try:
-                        # 🎯 核心修正：精確對齊櫃買中心官方欄位 TradingShares (成交股數)
                         vol_val = (
                             item.get("TradingShares") or 
                             item.get("TradeVolume") or 
@@ -87,7 +78,7 @@ def get_trending_stocks():
                         )
                         vol_raw = str(vol_val).replace(",", "").strip()
                         raw_vol = float(vol_raw) if vol_raw and vol_raw != "--" else 0.0
-                        volume = int(raw_vol // 1000)  # 換算為張數
+                        volume = int(raw_vol // 1000)
 
                         price_val = item.get("Close") or item.get("ClosingPrice") or "0"
                         price_raw = str(price_val).replace(",", "").strip()
@@ -104,9 +95,6 @@ def get_trending_stocks():
     except Exception as e:
         print(f"⚠️ 上櫃熱門股票抓取失敗: {e}")
 
-    # -------------------------------------------------------------------------
-    # 3. 排序並取 Top 5 (成交張數排行依據真實張數降冪排序)
-    # -------------------------------------------------------------------------
     twse_valid = [s for s in twse_stocks if s["volume"] > 0]
     twse_top_volume = sorted(twse_valid if twse_valid else twse_stocks, key=lambda x: x["volume"], reverse=True)[:5]
     twse_top_price = sorted(twse_stocks, key=lambda x: x["price"], reverse=True)[:5]
@@ -128,15 +116,15 @@ def get_trending_stocks():
     }
 
 # ============================================================================
-# 原有功能：歷史行情資料爬蟲
+# 原有功能：歷史行情資料爬蟲 (擴充支援最多 12 個月)
 # ============================================================================
-def get_stock_historical_data(code):
+def get_stock_historical_data(code, months=12):
     """
-    動態抓取特定個股過去 6 個月的歷史日收盤價與真實成交量
+    動態抓取特定個股過去 12 個月的歷史日收盤價與真實成交量
     支援上市（證交所）與上櫃（櫃買中心）股票
     """
     code = str(code).strip().zfill(4)
-    print(f"📡 正在動態抓取股票代碼 {code} 過去 6 個月的歷史行情與真實成交量...")
+    print(f"📡 正在動態抓取股票代碼 {code} 過去 {months} 個月的歷史行情與真實成交量...")
     
     today = datetime.date.today()
     prices_list = []
@@ -149,9 +137,11 @@ def get_stock_historical_data(code):
     market_type = "未知"
 
     months_to_fetch = []
-    for i in range(5, -1, -1):
+    for i in range(months - 1, -1, -1):
         d = today - datetime.timedelta(days=i * 30)
         months_to_fetch.append(d.strftime("%Y%m01"))
+
+    months_to_fetch = sorted(list(set(months_to_fetch)))
 
     is_listed = False
     try:
@@ -193,7 +183,6 @@ def get_stock_historical_data(code):
                     table_data = data['tables'][0].get('data', [])
                     for row in table_data:
                         dates_list.append(row[0].strip())
-                        # 💡 櫃買中心 (TPEx) 成交量單位為「千股 (張)」，需乘以 1000 換算成「股」，以與證交所 (TWSE) 的單位一致
                         raw_vol = row[1].strip().replace(',', '')
                         try:
                             vol_in_shares = str(int(raw_vol) * 1000)
@@ -221,6 +210,7 @@ def get_stock_historical_data(code):
         '成交量': volumes_list
     })
     
+    df = df.drop_duplicates(subset=['日期']).reset_index(drop=True)
     df['股票代碼'] = code
     df['名稱'] = stock_name
     df['市場'] = market_type
