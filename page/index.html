@@ -6,18 +6,13 @@
     <title>StockAI 智能儀表板</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial@0.2.0/dist/chartjs-chart-financial.min.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
 </head>
 <body>
-    <!-- 小螢幕專用漢堡選單點擊按鈕 -->
     <button class="mobile-menu-toggle" id="menuToggleBtn">☰</button>
-    <!-- 小螢幕側邊欄開啟時的背景遮罩 -->
     <div class="sidebar-overlay" id="sidebarOverlay"></div>
 
     <div class="container">
@@ -26,7 +21,6 @@
             <ul class="nav-links">
                 <li class="active" id="navMarketOverview">市場總覽</li>
                 <li id="navWatchlist">自選股</li>
-                <!-- 💡 整合新增：熱門股票選單項目 -->
                 <li id="navTrending">熱門股票</li>
                 <li id="navAiReport">AI 報告</li>
             </ul>
@@ -38,16 +32,13 @@
                 <div class="header-info">
                     <div id="displayName">載入中...</div>
                     <div class="status">系統：<span class="online">ONLINE</span></div>
+                    <button class="primary-btn live-refresh-btn" id="reloadPageBtn" title="重新整理當前股票">🔄 即時刷新</button>
                 </div>
             </header>
 
-            <!-- 市場總覽與原本圖表、AI報告區塊 (原本功能皆保留) -->
             <div id="mainDashboardViews" style="display: flex; flex-direction: column; gap: 20px; width: 100%;">
                 
-                <!-- 💡 核心排版：雙欄 50% 對稱格局 -->
                 <div class="stats-grid">
-                    
-                    <!-- 卡片 1：市場情感分數 (左側) -->
                     <div class="stat-card">
                         <h3 style="display: flex; align-items: center; justify-content: space-between;">
                             市場情感分數 
@@ -60,31 +51,50 @@
                         <p class="stat-desc">基於新聞與本地 FinBERT 語意分析</p>
                     </div>
 
-                    <!-- 卡片 2：💡 整合修改：保留標題，並將「漲跌文字」與「預測機率」左右並排對齊，高度維持與左邊對稱 -->
                     <div class="stat-card" style="display: flex; flex-direction: column; justify-content: space-between;">
                         <h3 style="margin-top: 0; margin-bottom: 0; line-height: 1.2; display: flex; justify-content: space-between; align-items: center;">
                             AI 智能漲跌預測
                             <span id="predictBadge" style="font-size: 0.65em; font-weight: 600; padding: 4px 8px; border-radius: 12px; display: none;"></span>
                         </h3>
-                        
-                        <!-- 漲跌字樣與機率並排容器 -->
                         <div style="display: flex; align-items: baseline; justify-content: space-between; margin-top: auto; margin-bottom: auto; padding: 25px 0 10px 0;">
-                            <!-- 預測方向 (原本的 id) -->
-                            <div id="predictVal" class="stat-value" style="color: #64748b; margin: 0;">
-                                待搜尋股票
-                            </div>
-                            <!-- 💡 新增：預測機率值 (id 為 predictProb，字體稍微縮小呈現精緻副標感) -->
-                            <div id="predictProb" style="color: #64748b; font-size: 1.8em; font-weight: 800; font-family: 'Inter', sans-serif;">
-                                --%
-                            </div>
+                            <div id="predictVal" class="stat-value" style="color: #64748b; margin: 0;">待搜尋股票</div>
+                            <div id="predictProb" style="color: #64748b; font-size: 1.8em; font-weight: 800; font-family: 'Inter', sans-serif;">--%</div>
                         </div>
                     </div>
-
                 </div>
 
                 <section class="chart-section">
                     <div class="chart-card">
-                        <h3 id="chartTitle">過去 6 個月價格趨勢圖</h3>
+                        <div class="chart-header-controls">
+                            <h3 id="chartTitle">過去 6 個月 日K 價格趨勢圖</h3>
+                            
+                            <div class="controls-group">
+                                <div class="btn-toggle-group" id="intervalToggleGroup">
+                                    <button class="btn-toggle active" data-interval="D">日K</button>
+                                    <button class="btn-toggle" data-interval="W">週K</button>
+                                    <button class="btn-toggle" data-interval="M">月K</button>
+                                </div>
+
+                                <div class="month-select-wrapper">
+                                    <label for="monthSelect" style="color: #94a3b8; font-size: 0.85em; font-weight: 600;">時間範圍：</label>
+                                    <select id="monthSelect" class="month-select">
+                                        <option value="1">1 個月</option>
+                                        <option value="2">2 個月</option>
+                                        <option value="3">3 個月</option>
+                                        <option value="4">4 個月</option>
+                                        <option value="5">5 個月</option>
+                                        <option value="6" selected>6 個月 (預設)</option>
+                                        <option value="7">7 個月</option>
+                                        <option value="8">8 個月</option>
+                                        <option value="9">9 個月</option>
+                                        <option value="10">10 個月</option>
+                                        <option value="11">11 個月</option>
+                                        <option value="12">12 個月 (1年)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="canvas-wrapper">
                             <canvas id="stockChart"></canvas>
                         </div>
@@ -105,25 +115,19 @@
                 </section>
             </div>
 
-            <!-- 💡 整合修改：熱門股票動態爬蟲區塊（完全無寫死資料，等待後端 API 對接） -->
             <section class="trending-section" id="trendingSection" style="display: none; width: 100%;">
                 <div class="trending-header" style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h2>🔥 台股人氣熱門榜 (Top 5)</h2>
                         <p class="stat-desc">即時連線證交所與櫃買中心 API，並自動過濾 ETF 商品</p>
                     </div>
-                    <!-- 重新整理按鈕 -->
                     <button class="primary-btn" onclick="fetchLiveTrendingStocks()" style="padding: 8px 16px;">🔄 即時刷新</button>
                 </div>
                 
-                <!-- 上市與上櫃的大容器 -->
                 <div style="display: flex; flex-direction: column; gap: 30px; width: 100%;">
-                    
-                    <!-- ================= 上市公司 (TWSE) ================= -->
                     <div>
                         <h2 style="color: #f87171; margin-bottom: 15px; font-size: 1.4em;">📈 上市股票 (TWSE)</h2>
                         <div class="trending-grid">
-                            <!-- 上市成交量 Top 5 -->
                             <div class="trending-card">
                                 <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
                                     <span>📊 成交張數排行</span>
@@ -134,7 +138,6 @@
                                 </ul>
                             </div>
                             
-                            <!-- 上市收盤價 Top 5 -->
                             <div class="trending-card">
                                 <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
                                     <span>💎 股價高低排行</span>
@@ -147,11 +150,9 @@
                         </div>
                     </div>
 
-                    <!-- ================= 上櫃公司 (TPEx) ================= -->
                     <div>
                         <h2 style="color: #fbbf24; margin-bottom: 15px; font-size: 1.4em;">🚀 上櫃股票 (TPEx)</h2>
                         <div class="trending-grid">
-                            <!-- 上櫃成交量 Top 5 -->
                             <div class="trending-card">
                                 <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
                                     <span>📊 成交張數排行</span>
@@ -162,7 +163,6 @@
                                 </ul>
                             </div>
                             
-                            <!-- 上櫃收盤價 Top 5 -->
                             <div class="trending-card">
                                 <h3 style="color: #e2e8f0; border-bottom: 2px solid #334155; padding-bottom: 10px; margin-top: 0; display: flex; justify-content: space-between;">
                                     <span>💎 股價高低排行</span>
@@ -174,17 +174,15 @@
                             </div>
                         </div>
                     </div>
-
                 </div>
             </section>
 
-            <!-- 自選股頁面 (原本功能皆保留) -->
             <section class="watchlist-section" id="watchlistSection" style="display: none;">
                 <div class="watchlist-card">
                     <h3>我的自選股清單</h3>
                     <p class="stat-desc">這裡可以展示您追蹤的股票自選清單項目</p>
                     <div class="table-responsive" style="margin-top: 20px;">
-                        暫無自選股資料，可在後續擴充此區塊功能。
+                        暫無自選股資料。
                     </div>
                 </div>
             </section>
@@ -192,7 +190,7 @@
     </div>
     
     <script src="script.js"></script>
-    <!-- 💡 新增：AI 預測分析鎖定畫面遮罩 -->
+    
     <div id="aiAnalysisOverlay" class="analysis-overlay" style="display: none;">
         <div class="analysis-spinner-box">
             <div class="analysis-spinner"></div>
@@ -201,7 +199,6 @@
         </div>
     </div>
 
-    <!-- 控制小螢幕漢堡選單開關的輕量 JS -->
     <script>
         const menuToggleBtn = document.getElementById('menuToggleBtn');
         const sidebar = document.getElementById('sidebar');

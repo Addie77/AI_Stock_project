@@ -1,131 +1,92 @@
-/**
- * ============================================================================
- * 全域變數定義區 (Global CSS Variables / Custom Properties)
- * 作用：集中控管深色科技風（Dark Mode）的主題配色，便於維護與全站視覺統一
- * ============================================================================
- */
 :root { 
-    --bg: #0f172a;      /* 全站底色：採用 slate-900 深藍灰色，降低視覺疲勞 */
-    --card: #1e293b;    /* 卡片區塊底色：採用 slate-800，建立立體視覺層次 */
-    --accent: #38bdf8;  /* 系統強調色：天藍色，用於高亮、按鈕與重要資訊顯示 */
-    --text: #f8fafc;    /* 主體文字顏色：微偏藍的亮白色，防止純白過於刺眼 */
+    --bg: #0f172a;
+    --card: #1e293b;
+    --accent: #38bdf8;
+    --text: #f8fafc;
 }
 
-/**
- * ============================================================================
- * 基礎標籤樣式重設 (Base Elements Styles Reset)
- * ============================================================================
- */
 body { 
-    margin: 0;                    /* 消除瀏覽器預設的邊界死角，確保網頁完全滿版 */
-    background: var(--bg);        /* 帶入全域底色變數 */
-    color: var(--text);           /* 帶入全域文字變照變數 */
-    font-family: 'Inter', sans-serif; /* 設定科技風專用英文字體與後備無襯線字體 */
-    overflow-y: auto;             /* 關鍵優化：當內容（如 AI 報告展延）超出視窗時，允許垂直捲動 */
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    overflow-y: auto;
 }
 
-/**
- * ============================================================================
- * 核心版面佈局 (Main Dashboard Layout Structure)
- * ============================================================================
- */
-/* 儀表板外層大容器：利用 Flexbox 建立側邊欄固定、內容區自適應的雙欄架構 */
 .container { display: flex; }
 
-/* 左側側邊導覽列 (Sidebar) */
 .sidebar { 
-    width: 200px;           /* 固定側邊欄寬度 */
-    background: #020617;    /* 比底色更深邃的極深藍（slate-950），增強階層感 */
-    height: 100vh;          /* 強制撐滿瀏覽器視窗高度（100% Viewport Height） */
-    position: sticky;       /* 💡 互動優化：當網頁向下捲動時，導覽列會固定固定在畫面左側不消失 */
+    width: 200px;
+    background: #020617;
+    height: 100vh;
+    position: sticky;
     top: 0; 
     padding: 25px; 
-    box-sizing: border-box; /* 確保 padding 不會撐大原本設定的 200px 寬度 */
+    box-sizing: border-box;
 }
 
-/* 專案系統標題 Logo */
 .logo { 
     font-size: 24px; 
-    font-weight: 800;       /* 粗體字，強化品牌形象 */
-    color: var(--accent);   /* 天藍強調色 */
+    font-weight: 800;
+    color: var(--accent);
     margin-bottom: 40px; 
-    letter-spacing: 1px;    /* 微調字距，呈現現代科技質感 */
+    letter-spacing: 1px;
 }
 
-/* 導覽選單列表外框 */
 .nav-links { list-style: none; padding: 0; margin: 0; }
 
-/* 導覽選單單一項目 (Market Overview / AI Report) */
 .nav-links li { 
     padding: 12px 15px; 
-    cursor: pointer;        /* 滑鼠移入時呈現手指形狀，提升可點擊暗示（Affordance） */
-    border-radius: 10px;    /* 圓角化設計 */
+    cursor: pointer;
+    border-radius: 10px;
     margin-bottom: 8px; 
-    color: #94a3b8;         /* 預設為中性灰色文字 */
-    transition: all 0.2s;   /* 平滑過渡動畫，點擊或切換時視覺不生硬 */
+    color: #94a3b8;
+    transition: all 0.2s;
 }
 
-/* 當前作用、被選取的選單項目高亮樣式 (由 script.js 動態調控) */
 .nav-links li.active { 
-    background: #1e293b;    /* 卡片底色亮起 */
-    color: var(--accent);   /* 文字轉為天藍強調色 */
+    background: #1e293b;
+    color: var(--accent);
     font-weight: bold; 
 }
 
-/* 右側主要內容區外框 */
 .main-content { 
-    flex: 1;                /* 💡 彈性配置：自動填滿側邊欄剩餘的所有橫向螢幕空間 */
+    flex: 1;
     padding: 30px; 
     display: flex; 
-    flex-direction: column; /* 區塊呈垂直由上至下排列 */
-    gap: 20px;              /* 元件與元件之間的固定安全間距 */
+    flex-direction: column;
+    gap: 20px;
 }
 
-/**
- * ============================================================================
- * 頂部功能列與搜尋控制件 (Header & Search Controls)
- * ============================================================================
- */
 header { 
     display: flex; 
     align-items: center; 
-    justify-content: space-between; /* 搜尋框與股票標題、系統狀態維持左右兩端對齊 */
+    justify-content: space-between;
     margin-bottom: 10px; 
 }
 
-/* 股票代碼輸入框 */
 #stockSearch { 
     background: var(--card); 
     border: 1px solid #334155; 
     padding: 10px 20px; 
-    border-radius: 12px;    /* 大圓角現代風 */
+    border-radius: 12px;
     color: white; 
     width: 300px; 
-    outline: none;          /* 移除原生瀏覽器點擊時的粗黑外框 */
+    outline: none;
     transition: border-color 0.2s;
 }
-#stockSearch:focus { border-color: var(--accent); } /* 點擊輸入時外框亮起天藍色 */
+#stockSearch:focus { border-color: var(--accent); }
 
-/* 股票動態顯示名稱 */
 #displayName { font-size: 24px; font-weight: bold; color: var(--accent); }
 
-/* ONLINE 連線狀態字樣 */
 .online { color: #34d399; font-weight: bold; }
 
-/**
- * ============================================================================
- * 組件佈局與通用卡片設計 (Components Grid & Universal Cards)
- * ============================================================================
- */
-/* 💡 專題關鍵微調：將指標網格改為單欄 1fr，達成全站卡片元件（指標、圖表、報告）寬度完美對齊 */
-/* 💡 將原本單欄的 stats-grid 調整為 1:1 的雙欄排版 */
 .stats-grid { 
     display: grid; 
-    grid-template-columns: 1fr 1fr; /* 讓兩個卡片各佔 50% */
+    grid-template-columns: 1fr 1fr;
     gap: 20px; 
 }
 
-/* 💡 斷點設定：當手機版或螢幕寬度小於 768px 時，自動恢復成單欄排列，防止破版 */
 @media (max-width: 768px) {
     .stats-grid { 
         grid-template-columns: 1fr; 
@@ -134,99 +95,69 @@ header {
 
 .chart-section, .ai-report-section { width: 100%; }
 
-/* 三大核心卡片（指標、圖表、報告）的基礎設計規範，確保 UI 系統的一致性（Consistency） */
 .stat-card, .chart-card, .news-card { 
     background: var(--card); 
     padding: 25px; 
     border-radius: 16px; 
-    border: 1px solid #334155; /* 細部深灰邊框，在深色背景下勾勒出卡片邊緣線條 */
+    border: 1px solid #334155;
 }
 
-/* Chart.js 畫布的包覆容器：強制指定高度，並確保寬度完全隨父層卡片伸縮 */
 .canvas-wrapper { 
     height: 400px; 
     width: 100%; 
-    max-width: 100%; /* 💡 確保絕對不會超出父層卡片 */
+    max-width: 100%;
     margin-top: 15px; 
-    position: relative; /* 💡 Chart.js 官方強烈建議響應式容器加上 relative 屬性 */
+    position: relative;
     display: block;
 }
 
-/* 💡 強制讓 Chart.js 生成的 canvas 元件百分之百跟隨容器 */
 .canvas-wrapper canvas {
     width: 100% !important;
     max-width: 100%;
 }
 
-/* 斷點設定：平板與手機端優化 */
 @media (max-width: 768px) {
-    /* ... 保持你原本複製的其他 RWD 設定 ... */
-
-    /* 縮小圖表高度以符合手機螢幕比例，並維持寬度 */
     .canvas-wrapper {
         height: 300px;
         width: 100%;
     }
 }
 
-/**
- * ============================================================================
- * 本地端 FinBERT 情感進度條元件 (Sentiment Bar UI Components)
- * ============================================================================
- */
-/* 情感進度條外框軌道 */
 .sentiment-bar { 
     background: #334155; 
     height: 14px; 
     border-radius: 7px; 
-    overflow: hidden;      /* 確保內條在延伸或裁切時不會超出圓角範圍 */
+    overflow: hidden;
     margin: 15px 0; 
     width: 100%; 
 }
 
-/* 情感進度條內部填滿條 */
 .sentiment-fill { 
-    /* 💡 視覺亮點：採用金融情緒光譜漸層（紅：恐慌/賣壓 -> 黃：盤整觀望 -> 綠：樂觀/買盤） */
     background: linear-gradient(90deg, #f87171, #fbbf24, #34d399); 
     height: 100%; 
-    width: 0%;             /* 初始值為 0%，等待後端實時數據載入 */
-    transition: width 1s ease-out; /* 💡 動態亮點：當 script.js 寫入百分比時，會觸發 1 秒的平滑動畫向右延伸 */
+    width: 0%;
+    transition: width 1s ease-out;
 }
 
-/* 量化指標大數字顯示 */
 .stat-value { font-size: 32px; font-weight: bold; margin-top: 10px; }
-/* 指標小字說明 */
 .stat-desc { font-size: 13px; color: #64748b; margin-top: 5px; }
 
-/**
- * ============================================================================
- * 第二階段：雲端 AI 報告與操作建議框 (Generative AI Report Styling)
- * ============================================================================
- */
 .ai-report-section { 
     margin-top: 20px; 
-    padding-bottom: 50px; /* 底部保留 50px 緩衝，防止滾動跳轉時畫面貼底卡死 */
+    padding-bottom: 50px;
 }
 #aiSummary { font-size: 1.15em; line-height: 1.6; color: #cbd5e1; }
 
-/* 進階實戰操作建議提示框 */
 .advice-box { 
     margin-top: 15px; 
     padding: 20px; 
-    /* 採用 10% 透明度的天藍色微光背景，與主色系相互呼應 */
     background: rgba(56, 189, 248, 0.1); 
-    border-left: 5px solid var(--accent); /* 左側粗邊框設計，建立強烈的視覺提示（Alert Callout） */
+    border-left: 5px solid var(--accent);
     border-radius: 8px; 
-    color: var(--accent);                 /* 文字強制高亮為天藍色，方便閱讀重點 */
-    line-height: 1.6;                     /* 最佳化閱讀體驗的行高配置 */
+    color: var(--accent);
+    line-height: 1.6;
 }
 
-/**
- * ============================================================================
- * 兩階段控制：觸發按鈕樣式 (Interactive Primary Button)
- * ============================================================================
- */
-/* AI 報告標頭容器，將標題與生成按鈕平行置放 */
 .card-header-btn {
     display: flex;
     justify-content: space-between;
@@ -235,9 +166,7 @@ header {
 }
 .card-header-btn h3 { margin: 0; }
 
-/* 智能報告生成按鈕（系統主按鈕） */
 .primary-btn {
-    /* 採用符合現代科技風（SaaS 風格）的深藍到天藍微幅漸層 */
     background: linear-gradient(135deg, #0284c7, #38bdf8);
     color: white;
     border: none;
@@ -245,25 +174,17 @@ header {
     border-radius: 8px;
     font-weight: bold;
     cursor: pointer;
-    /* 同時微調透明度與變形縮放，建立流暢的互動回饋（Micro-interactions） */
     transition: opacity 0.2s, transform 0.1s;
 }
-.primary-btn:hover { opacity: 0.9; }                     /* 滑鼠懸停：微幅亮起 */
-.primary-btn:active { transform: scale(0.98); }          /* 點擊瞬間：按鈕微幅往內縮小，模擬實體按鈕回彈感 */
+.primary-btn:hover { opacity: 0.9; }
+.primary-btn:active { transform: scale(0.98); }
 
-/* 💡 防禦性切版：當 JavaScript 判定 AI 正在連線中並將按鈕設為 disabled 時的樣式 */
 .primary-btn:disabled { 
-    background: #475569;  /* 轉為低調的 Slate 灰色，代表不可點擊 */
+    background: #475569;
     color: #94a3b8; 
-    cursor: not-allowed;  /* 滑鼠指針變更為禁止符號 */
+    cursor: not-allowed;
 }
 
-
-/**
- * ============================================================================
- * 新增：自選頁面專屬樣式 (Watchlist Section Styling)
- * ============================================================================
- */
 .watchlist-section {
     width: 100%;
     margin-top: 10px;
@@ -277,7 +198,6 @@ header {
     border: 1px solid #334155;
 }
 
-/* 自選股表格樣式 */
 .watchlist-table {
     width: 100%;
     border-collapse: collapse;
@@ -302,7 +222,6 @@ header {
     background-color: rgba(255, 255, 255, 0.02);
 }
 
-/* 操作按鈕樣式 */
 .action-btn {
     padding: 6px 12px;
     border-radius: 6px;
@@ -348,7 +267,6 @@ header {
     color: #0f172a;
 }
 
-/* 行內編輯輸入框 */
 .watchlist-input {
     background: #0f172a;
     border: 1px solid #334155;
@@ -363,30 +281,21 @@ header {
     border-color: #38bdf8;
 }
 
-/**
- * ============================================================================
- * 響應式優化與防破版底層設定 (Responsive Fixes)
- * ============================================================================
- */
-
-/* 確保全螢幕下的基本彈性 */
 .container {
     width: 100%;
     min-height: 100vh;
 }
 
-/* 防止自選股表格在手機版溢出破版，改為橫向滾動 */
 .table-responsive {
     width: 100%;
     overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* 讓 iOS 滑動更平滑 */
+    -webkit-overflow-scrolling: touch;
 }
 
 .watchlist-table {
-    min-width: 600px; /* 確保表格在窄螢幕下仍能保持基本可讀欄寬 */
+    min-width: 600px;
 }
 
-/* 頂部 Header 重構，在空間不夠時支援包覆換行 */
 header {
     flex-wrap: wrap;
     gap: 15px;
@@ -398,7 +307,6 @@ header {
     gap: 20px;
 }
 
-/* 小螢幕專用漢堡選單按鈕 (預設隱藏) */
 .mobile-menu-toggle {
     display: none;
     position: fixed;
@@ -416,7 +324,6 @@ header {
     box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
 }
 
-/* 半透明黑色遮罩 (預設隱藏) */
 .sidebar-overlay {
     display: none;
     position: fixed;
@@ -429,107 +336,51 @@ header {
     backdrop-filter: blur(4px);
 }
 
-/**
- * ============================================================================
- * 斷點設定：平板與手機端優化 (Media Query: Max-width 768px)
- * ============================================================================
- */
 @media (max-width: 768px) {
-    /* 顯示漢堡選單按鈕 */
-    .mobile-menu-toggle {
-        display: block;
-    }
-
-    /* 啟用遮罩作用態 */
-    .sidebar-overlay.active {
-        display: block;
-    }
-
-    /* 調整主容器為單欄直向排列 */
-    .container {
-        flex-direction: column;
-    }
-
-    /* 側邊導覽列改為「抽屜式」隱藏，點擊漢堡鈕才滑出 */
+    .mobile-menu-toggle { display: block; }
+    .sidebar-overlay.active { display: block; }
+    .container { flex-direction: column; }
     .sidebar {
         position: fixed;
-        left: -240px; /* 寬度為 200px + padding 40px */
+        left: -240px;
         top: 0;
         z-index: 1000;
         transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
     }
-
-    /* 當側邊欄帶有 .open 樣式時滑出 */
-    .sidebar.open {
-        transform: translateX(240px);
-    }
-
-    /* 主內容區填滿，並預留頂部空間給漢堡按鈕 */
+    .sidebar.open { transform: translateX(240px); }
     .main-content {
         padding: 20px;
         padding-top: 70px; 
         width: 100%;
         box-sizing: border-box;
     }
-
-    /* 頂部搜尋與資訊改為上下直排 */
     header {
         flex-direction: column;
         align-items: flex-start;
         gap: 15px;
     }
-
     #stockSearch {
-        width: 100%; /* 搜尋框滿版 */
+        width: 100%;
         box-sizing: border-box;
     }
-
     .header-info {
         width: 100%;
         justify-content: space-between;
     }
-
-    /* AI 建議報告的卡片標頭改為直排，讓按鈕在手機上不會擠扁 */
     .card-header-btn {
         flex-direction: column;
         align-items: flex-start;
         gap: 12px;
     }
-
-    .primary-btn {
-        width: 100%; /* 按鈕在手機版改為滿版，方便大拇指點擊 */
-        text-align: center;
-    }
-
-    /* 縮小圖表高度以符合手機螢幕比例 */
-    .canvas-wrapper {
-        height: 300px;
-    }
-
-    /* 微調卡片內邊距 */
-    .stat-card, .chart-card, .news-card, .watchlist-card {
-        padding: 18px;
-    }
+    .primary-btn { width: 100%; text-align: center; }
+    .canvas-wrapper { height: 300px; }
+    .stat-card, .chart-card, .news-card, .watchlist-card { padding: 18px; }
 }
 
+.trending-header { margin-bottom: 20px; }
+.trending-header h2 { color: white; margin: 0 0 5px 0; }
 
-
-/**
- * ============================================================================
- * 熱門股票頁面專屬樣式 (Trending Section Styling)
- * ============================================================================
- */
-.trending-header {
-    margin-bottom: 20px;
-}
-
-.trending-header h2 {
-    color: white;
-    margin: 0 0 5px 0;
-}
-
-/* 將上市與上櫃拆成左右兩個卡片 */
 .trending-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -544,7 +395,6 @@ header {
     border: 1px solid #334155;
 }
 
-/* 熱門清單樣式 */
 .trending-list {
     list-style: none;
     padding: 0;
@@ -561,17 +411,15 @@ header {
     background: #0f172a;
     border: 1px solid transparent;
     transition: all 0.2s;
-    cursor: pointer; /* 暗示可以點擊去查看股票 */
+    cursor: pointer;
 }
 
-/* 滑鼠移上去會有微微亮起的效果 */
 .trending-list li:hover {
     border-color: var(--accent);
     background: rgba(56, 189, 248, 0.05);
-    transform: translateX(5px); /* 微幅向右滑動效果 */
+    transform: translateX(5px);
 }
 
-/* 股票代碼與名稱 */
 .trend-name {
     font-size: 1.1em;
     font-weight: bold;
@@ -584,7 +432,6 @@ header {
     margin-left: 8px;
 }
 
-/* 右側快速分析按鈕 */
 .trend-action-btn {
     background: rgba(56, 189, 248, 0.1);
     color: var(--accent);
@@ -600,14 +447,10 @@ header {
     color: #0f172a;
 }
 
-/* 手機版：上市上櫃改為上下排列 */
 @media (max-width: 768px) {
-    .trending-grid {
-        grid-template-columns: 1fr;
-    }
+    .trending-grid { grid-template-columns: 1fr; }
 }
 
-/* 💡 整合新增：AI預測與純技術預測徽章樣式 */
 .badge-ai {
     background: rgba(56, 189, 248, 0.15) !important;
     color: #38bdf8 !important;
@@ -619,9 +462,6 @@ header {
     border: 1px solid rgba(148, 163, 184, 0.3) !important;
 }
 
-/* ============================================================================
-   💡 新增：AI 預測鎖定遮罩與排行第一名預測標籤樣式
-   ============================================================================ */
 .analysis-overlay {
     position: fixed;
     top: 0;
@@ -716,4 +556,117 @@ header {
     background: rgba(74, 222, 128, 0.12) !important;
     color: #4ade80 !important;
     border-color: rgba(74, 222, 128, 0.25) !important;
+}
+
+.chart-header-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    margin-bottom: 10px;
+}
+
+.chart-header-controls h3 {
+    margin: 0;
+}
+
+.controls-group {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.btn-toggle-group {
+    display: flex;
+    background: #0f172a;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 3px;
+    gap: 2px;
+}
+
+.btn-toggle {
+    background: transparent;
+    border: none;
+    color: #94a3b8;
+    padding: 5px 12px;
+    font-size: 0.85em;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-toggle:hover {
+    color: #f8fafc;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.btn-toggle.active {
+    background: #38bdf8;
+    color: #0f172a;
+    font-weight: bold;
+    box-shadow: 0 2px 6px rgba(56, 189, 248, 0.3);
+}
+
+.month-select-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.month-select {
+    background: #0f172a;
+    color: #38bdf8;
+    border: 1px solid #334155;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 0.85em;
+    font-weight: bold;
+    outline: none;
+    cursor: pointer;
+    transition: border-color 0.2s;
+}
+
+.month-select:focus {
+    border-color: var(--accent);
+}
+
+.live-refresh-btn {
+    background: #0284c7;
+    color: #ffffff;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 0.9em;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+    transition: all 0.2s ease;
+}
+
+.live-refresh-btn:hover {
+    background: #0369a1;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(2, 132, 199, 0.45);
+}
+
+.live-refresh-btn:active {
+    transform: scale(0.97);
+}
+
+@media (max-width: 768px) {
+    .chart-header-controls {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .controls-group {
+        width: 100%;
+        justify-content: space-between;
+    }
 }

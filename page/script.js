@@ -3,9 +3,13 @@
  * 全域變數定義 (Global Variables)
  * ============================================================================
  */
-let stockChart;          // 儲存 Chart.js 的圖表實例（Instance），以便後續銷毀並重建圖表
-let currentStockCode = ''; // 💡 核心修正：將初始追蹤代碼設為空字串，完全移除預設股票
-let isSearching = false;   // 💡 新增：全域變數，防止重複與並行搜尋導致狀態衝突
+let stockChart;          
+let currentStockCode = ''; 
+let isSearching = false;   
+
+let rawStockData = null;
+let currentMonths = 6;        // 預設 6 個月
+let currentInterval = 'D';    // 預設 日K
 
 if (typeof Chart !== 'undefined') {
     const financialPlugin = window['chartjs-chart-financial'];
@@ -22,6 +26,7 @@ if (typeof Chart !== 'undefined') {
         );
     }
 }
+
 /**
  * ============================================================================
  * 網頁初始化與事件監聽 (Initialization & Event Listeners)
@@ -30,6 +35,19 @@ if (typeof Chart !== 'undefined') {
 document.addEventListener('DOMContentLoaded', () => {
     initDashboardState();
     
+    // 監聽頂部重新整理按鈕
+    const reloadBtn = document.getElementById('reloadPageBtn');
+    if (reloadBtn) {
+        reloadBtn.addEventListener('click', () => {
+            if (!currentStockCode) {
+                alert("請先在上方搜尋股票代碼，再進行重新整理。");
+                return;
+            }
+            showDashboardView();
+            fetchStockData(currentStockCode);
+        });
+    }
+
     // 監聽搜尋框的按鍵事件
     document.getElementById('stockSearch').addEventListener('keypress', (e) => {
         if (e.key === 'Enter') {
@@ -42,7 +60,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 監聽「生成 AI 智能建議報告」按鈕的點擊事件
+    // 監聽「生成 AI 智能建議報告」按鈕
     document.getElementById('generateAiBtn').addEventListener('click', () => {
         if (!currentStockCode) {
             alert("請先在上方搜尋股票代碼，再生成 AI 報告。");
@@ -51,35 +69,23 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAiReport(currentStockCode);
     });
 
-    /**
-     * 💡 互動功能：點擊左側「AI 報告」選單自動平滑跳轉至對應區塊
-     */
     document.getElementById('navAiReport').addEventListener('click', () => {
         showDashboardView();
-
         const aiSection = document.getElementById('aiReportSection');
         if (aiSection) {
             aiSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
-        
         document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navAiReport').classList.add('active');
     });
 
-    /**
-     * 💡 互動功能：點擊左側「市場總覽」回到網頁最頂端
-     */
     document.getElementById('navMarketOverview').addEventListener('click', () => {
         showDashboardView();
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        
         document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navMarketOverview').classList.add('active');
     });
 
-    /**
-     * 💡 新增互動功能：點擊左側「自選股」切換至自選頁面
-     */
     document.getElementById('navWatchlist').addEventListener('click', () => {
         document.getElementById('mainDashboardViews').style.display = 'none';
         document.getElementById('trendingSection').style.display = 'none';
@@ -94,9 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    /**
-     * 💡 整合新增互動功能：點擊左側「熱門股票」切換至熱門頁面並自動載入
-     */
     document.getElementById('navTrending').addEventListener('click', () => {
         document.getElementById('mainDashboardViews').style.display = 'none';
         document.getElementById('watchlistSection').style.display = 'none';
@@ -106,11 +109,29 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
         document.getElementById('navTrending').classList.add('active');
 
-        // 💡 切換過來時自動執行爬蟲更新
         fetchLiveTrendingStocks();
     });
 
-    // 監聽心型「加入自選股」按鈕的點擊事件
+    // 週期切換監聽 (日K / 週K / 月K)
+    document.querySelectorAll('#intervalToggleGroup .btn-toggle').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('#intervalToggleGroup .btn-toggle').forEach(b => b.classList.remove('active'));
+            e.target.classList.add('active');
+            currentInterval = e.target.dataset.interval;
+            updateChartDisplay();
+        });
+    });
+
+    // 1~12 個月下拉選單監聽
+    const monthSelectEl = document.getElementById('monthSelect');
+    if (monthSelectEl) {
+        monthSelectEl.addEventListener('change', (e) => {
+            currentMonths = parseInt(e.target.value, 10) || 6;
+            updateChartDisplay();
+        });
+    }
+
+    // 監聽心型「加入自選股」按鈕
     document.getElementById('addWatchlistBtn').addEventListener('click', async () => {
         if (!currentStockCode) {
             alert("請先搜尋股票代碼，再加入自選股。");
@@ -170,18 +191,12 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
-/**
- * 💡 輔助函式：切換回主儀表板畫面
- */
 function showDashboardView() {
     document.getElementById('mainDashboardViews').style.display = 'flex';
     document.getElementById('watchlistSection').style.display = 'none';
     document.getElementById('trendingSection').style.display = 'none';
 }
 
-/**
- * 💡 初始化儀表板待命狀態 UI
- */
 function initDashboardState() {
     document.getElementById('displayName').innerText = "請搜尋股票代碼";
     document.getElementById('sentFill').style.width = '0%';
@@ -211,11 +226,9 @@ function initDashboardState() {
         stockChart.destroy();
         stockChart = null;
     }
+    rawStockData = null;
 }
 
-/**
- * 💡 統一更新機器學習預測卡片 UI
- */
 function updatePredictionUI(pred) {
     const predictValEl = document.getElementById('predictVal');
     const predictProbEl = document.getElementById('predictProb');
@@ -304,20 +317,15 @@ async function fetchStockData(code) {
         
         if (!response.ok) throw new Error(data.error);
 
+        rawStockData = data;
+
         document.getElementById('displayName').innerText = `${data.name} (${code})`;
         document.getElementById('sentFill').style.width = data.sentiment_score + '%'; 
         document.getElementById('sentVal').innerText = data.sentiment_score + " / 100";
         
         updatePredictionUI(data.ai_prediction);
 
-        renderChart(
-            data.history_dates || [], 
-            data.history_opens || data.history_prices || [], 
-            data.history_highs || data.history_prices || [], 
-            data.history_lows || data.history_prices || [], 
-            data.history_prices || [], 
-            data.history_volumes || []
-        );
+        updateChartDisplay();
 
         if (typeof checkFavoriteStatus === 'function') {
             checkFavoriteStatus(code);
@@ -330,6 +338,100 @@ async function fetchStockData(code) {
         initDashboardState();
         document.getElementById('aiSummary').innerText = `❌ 連線失敗或無此股票資料：${error.message}`;
     }
+}
+
+/**
+ * ============================================================================
+ * 根據選擇的月數（1~12 個月）與週期動態繪製圖表
+ * ============================================================================
+ */
+function updateChartDisplay() {
+    if (!rawStockData || !rawStockData.history_dates) return;
+
+    let dates = [...rawStockData.history_dates];
+    let opens = [...rawStockData.history_opens];
+    let highs = [...rawStockData.history_highs];
+    let lows = [...rawStockData.history_lows];
+    let prices = [...rawStockData.history_prices];
+    let volumes = [...rawStockData.history_volumes];
+
+    const sliceDays = Math.min(dates.length, Math.round(currentMonths * 22));
+
+    if (dates.length > sliceDays) {
+        dates = dates.slice(-sliceDays);
+        opens = opens.slice(-sliceDays);
+        highs = highs.slice(-sliceDays);
+        lows = lows.slice(-sliceDays);
+        prices = prices.slice(-sliceDays);
+        volumes = volumes.slice(-sliceDays);
+    }
+
+    if (currentInterval === 'W' || currentInterval === 'M') {
+        const resampled = resampleOHLC(dates, opens, highs, lows, prices, volumes, currentInterval);
+        dates = resampled.dates;
+        opens = resampled.opens;
+        highs = resampled.highs;
+        lows = resampled.lows;
+        prices = resampled.prices;
+        volumes = resampled.volumes;
+    }
+
+    const intervalName = currentInterval === 'D' ? '日K' : (currentInterval === 'W' ? '週K' : '月K');
+    document.getElementById('chartTitle').innerText = `過去 ${currentMonths} 個月 ${intervalName} 價格趨勢圖`;
+
+    renderChart(dates, opens, highs, lows, prices, volumes);
+}
+
+function resampleOHLC(dates, opens, highs, lows, prices, volumes, interval) {
+    const groups = {};
+
+    dates.forEach((dStr, i) => {
+        let key = '';
+        const parts = String(dStr).split('/');
+        if (parts.length === 3) {
+            const year = parseInt(parts[0], 10) + 1911;
+            const month = parts[1].padStart(2, '0');
+            const day = parts[2].padStart(2, '0');
+            const dt = luxon.DateTime.fromISO(`${year}-${month}-${day}`);
+            
+            if (interval === 'W') {
+                key = `${dt.weekYear}-W${dt.weekNumber}`;
+            } else if (interval === 'M') {
+                key = `${dt.year}-${month}`;
+            }
+        } else {
+            key = dStr;
+        }
+
+        if (!groups[key]) {
+            groups[key] = {
+                date: dStr,
+                open: opens[i],
+                high: highs[i],
+                low: lows[i],
+                close: prices[i],
+                volume: volumes[i]
+            };
+        } else {
+            groups[key].date = dStr;
+            groups[key].high = Math.max(groups[key].high, highs[i]);
+            groups[key].low = Math.min(groups[key].low, lows[i]);
+            groups[key].close = prices[i];
+            groups[key].volume += volumes[i];
+        }
+    });
+
+    const resDates = [], resOpens = [], resHighs = [], resLows = [], resPrices = [], resVolumes = [];
+    Object.values(groups).forEach(g => {
+        resDates.push(g.date);
+        resOpens.push(g.open);
+        resHighs.push(g.high);
+        resLows.push(g.low);
+        resPrices.push(g.close);
+        resVolumes.push(g.volume);
+    });
+
+    return { dates: resDates, opens: resOpens, highs: resHighs, lows: resLows, prices: resPrices, volumes: resVolumes };
 }
 
 /**
@@ -352,7 +454,6 @@ async function fetchAiReport(code) {
         if (!startRes.ok) throw new Error(startData.error || "啟動任務失敗");
 
         if (startData.status === 'completed') {
-            console.log("🚀 快取命中！直接載入今日分析數據。");
             document.getElementById('sentFill').style.width = startData.avg_sentiment + '%'; 
             document.getElementById('sentVal').innerText = startData.avg_sentiment + " / 100";
             if (startData.ai_prediction) {
@@ -417,7 +518,6 @@ async function fetchAiReport(code) {
         `;
         
         aiAdvice.style.display = 'block'; 
-        console.log("✨ 綜合 AI 報告渲染成功！");
         
     } catch (error) {
         console.error("Polling Error:", error);
@@ -497,7 +597,7 @@ function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [],
                     label: '股票 K 線',
                     data: candlestickData,
                     color: {
-                        up: '#22c55e', // 套件內部 up/down 映射與台股習慣相反，在此對調以實現漲紅跌綠
+                        up: '#22c55e',
                         down: '#ef4444',
                         unchanged: '#94a3b8'
                     },
@@ -557,14 +657,27 @@ function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [],
                 x: { 
                     type: 'timeseries',
                     time: {
-                        unit: 'day',
-                        displayFormats: { day: 'MM/dd' }
+                        unit: currentInterval === 'M' ? 'month' : (currentInterval === 'W' ? 'week' : 'day'),
+                        displayFormats: {
+                            day: 'MM/dd',
+                            week: 'MM/dd',
+                            month: 'yyyy/MM'
+                        }
                     },
                     grid: { display: false },
                     ticks: { 
                         color: '#94a3b8', 
                         maxTicksLimit: 10,
-                        source: 'data' 
+                        source: 'data',
+                        // 💡 關鍵修正：自訂 callback 強制統一日期格式為 MM/dd (月K則為 yyyy/MM)，消除 Chart.js 跨月自動換格式的現象
+                        callback: function(val) {
+                            const dt = luxon.DateTime.fromMillis(Number(val));
+                            if (!dt.isValid) return '';
+                            if (currentInterval === 'M') {
+                                return dt.toFormat('yyyy/MM');
+                            }
+                            return dt.toFormat('MM/dd');
+                        }
                     } 
                 }
             },
@@ -618,14 +731,11 @@ async function checkFavoriteStatus(code) {
         const res = await fetch(`http://localhost:8080/api/favorites`);
         if (!res.ok) return;
         const favorites = await res.json();
-        const isFav = favorites.some(fav => fav.stock.stockId === code);
-        updateFavoriteIcon(isFav);
+        updateFavoriteIcon(favorites.some(fav => fav.stock.stockId === code));
     } catch (e) {
         console.error("無法取得自選股狀態:", e);
     }
 }
-
-const syncedWatchlistStocks = new Set();
 
 async function loadWatchlist() {
     const container = document.querySelector('.watchlist-card div');
@@ -639,7 +749,6 @@ async function loadWatchlist() {
         const favorites = await res.json();
         renderWatchlist(favorites);
         
-        // 載入自選股結構後，背景並發請求 Python 服務以獲取即時股價並在前端計算渲染
         favorites.forEach(fav => {
             fetchAndRenderWatchlistPrice(fav.stock.stockId, fav.averageCost);
         });
@@ -660,10 +769,12 @@ async function fetchAndRenderWatchlistPrice(stockId, averageCost) {
         const prices = data.history_prices || [];
         if (prices.length > 0) {
             const currentPrice = prices[prices.length - 1];
-            document.getElementById(`price-${stockId}`).innerText = currentPrice.toFixed(2);
-            document.getElementById(`price-${stockId}`).setAttribute('data-price', currentPrice);
+            const priceEl = document.getElementById(`price-${stockId}`);
+            if (priceEl) {
+                priceEl.innerText = currentPrice.toFixed(2);
+                priceEl.setAttribute('data-price', currentPrice);
+            }
             
-            // 計算今日漲跌與漲跌幅
             if (prices.length >= 2) {
                 const prePrice = prices[prices.length - 2];
                 const change = currentPrice - prePrice;
@@ -672,36 +783,39 @@ async function fetchAndRenderWatchlistPrice(stockId, averageCost) {
                 let color = '#e2e8f0';
                 let sign = '';
                 if (change > 0) {
-                    color = '#f87171'; // 台股紅漲
-                    sign = '+';
-                } else if (change < 0) {
-                    color = '#34d399'; // 台股綠跌
-                }
-                
-                // 設定收盤價的顏色
-                document.getElementById(`price-${stockId}`).style.color = color;
-                
-                document.getElementById(`change-${stockId}`).innerHTML = 
-                    `<span style="color: ${color}; font-weight: 700;">${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)</span>`;
-            } else {
-                document.getElementById(`change-${stockId}`).innerText = '--';
-            }
-            
-            // 計算當前報酬率
-            if (averageCost !== null && averageCost !== undefined && averageCost > 0) {
-                const returnPercent = ((currentPrice - averageCost) / averageCost) * 100;
-                let color = '#e2e8f0';
-                let sign = '';
-                if (returnPercent > 0) {
                     color = '#f87171';
                     sign = '+';
-                } else if (returnPercent < 0) {
+                } else if (change < 0) {
                     color = '#34d399';
                 }
-                document.getElementById(`return-${stockId}`).innerHTML = 
-                    `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
+                
+                if (priceEl) priceEl.style.color = color;
+                
+                const changeEl = document.getElementById(`change-${stockId}`);
+                if (changeEl) {
+                    changeEl.innerHTML = `<span style="color: ${color}; font-weight: 700;">${sign}${change.toFixed(2)} (${sign}${changePercent.toFixed(2)}%)</span>`;
+                }
             } else {
-                document.getElementById(`return-${stockId}`).innerText = '--';
+                const changeEl = document.getElementById(`change-${stockId}`);
+                if (changeEl) changeEl.innerText = '--';
+            }
+            
+            const returnEl = document.getElementById(`return-${stockId}`);
+            if (returnEl) {
+                if (averageCost !== null && averageCost !== undefined && averageCost > 0) {
+                    const returnPercent = ((currentPrice - averageCost) / averageCost) * 100;
+                    let color = '#e2e8f0';
+                    let sign = '';
+                    if (returnPercent > 0) {
+                        color = '#f87171';
+                        sign = '+';
+                    } else if (returnPercent < 0) {
+                        color = '#34d399';
+                    }
+                    returnEl.innerHTML = `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
+                } else {
+                    returnEl.innerText = '--';
+                }
             }
         } else {
             document.getElementById(`price-${stockId}`).innerText = '--';
@@ -710,9 +824,8 @@ async function fetchAndRenderWatchlistPrice(stockId, averageCost) {
         }
     } catch (e) {
         console.error(`獲取自選股 ${stockId} 即時價格失敗:`, e);
-        document.getElementById(`price-${stockId}`).innerText = '❌ 錯誤';
-        document.getElementById(`change-${stockId}`).innerText = '--';
-        document.getElementById(`return-${stockId}`).innerText = '--';
+        const priceEl = document.getElementById(`price-${stockId}`);
+        if (priceEl) priceEl.innerText = '❌ 錯誤';
     }
 }
 
@@ -782,11 +895,7 @@ function renderWatchlist(favorites) {
         `;
     });
 
-    html += `
-            </tbody>
-        </table>
-    `;
-
+    html += `</tbody></table>`;
     container.innerHTML = html;
 }
 
@@ -803,17 +912,10 @@ function viewFavorite(stockId) {
 function toggleEditRow(stockId) {
     const row = document.getElementById(`fav-row-${stockId}`);
     if (!row) return;
-    
-    const viewElements = row.querySelectorAll('.view-mode');
-    const editElements = row.querySelectorAll('.edit-mode');
-    const editBtn = row.querySelector('.edit-btn');
-    const saveBtn = row.querySelector('.save-btn');
-    
-    viewElements.forEach(el => el.style.display = 'none');
-    editElements.forEach(el => el.style.display = 'inline-block');
-    
-    editBtn.style.display = 'none';
-    saveBtn.style.display = 'inline-block';
+    row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'none');
+    row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'inline-block');
+    row.querySelector('.edit-btn').style.display = 'none';
+    row.querySelector('.save-btn').style.display = 'inline-block';
 }
 
 async function saveFavoriteRow(stockId) {
@@ -823,7 +925,6 @@ async function saveFavoriteRow(stockId) {
     const targetPriceInput = row.querySelector('.target-price-cell input').value;
     const averageCostInput = row.querySelector('.average-cost-cell input').value;
     const memoInput = row.querySelector('.memo-cell input').value;
-    
     const targetPrice = targetPriceInput === '' ? null : parseFloat(targetPriceInput);
     const averageCost = averageCostInput === '' ? null : parseFloat(averageCostInput);
     const memo = memoInput;
@@ -831,16 +932,9 @@ async function saveFavoriteRow(stockId) {
     try {
         const res = await fetch(`http://localhost:8080/api/favorites/${stockId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                memo: memo,
-                targetPrice: targetPrice,
-                averageCost: averageCost
-            })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ memo: memo, targetPrice: targetPrice, averageCost: averageCost })
         });
-        
         if (!res.ok) throw new Error("更新失敗");
         const data = await res.json();
         
@@ -849,37 +943,24 @@ async function saveFavoriteRow(stockId) {
             row.querySelector('.average-cost-cell .view-mode').innerText = averageCost !== null ? averageCost : '--';
             row.querySelector('.memo-cell .view-mode').innerText = memo;
             
-            // 💡 前端即時重算報酬率，不需要重新呼叫 loadWatchlist()
             const currentPriceAttr = document.getElementById(`price-${stockId}`).getAttribute('data-price');
             if (currentPriceAttr) {
                 const currentPrice = parseFloat(currentPriceAttr);
                 if (averageCost !== null && averageCost > 0) {
                     const returnPercent = ((currentPrice - averageCost) / averageCost) * 100;
-                    let color = '#e2e8f0';
-                    let sign = '';
-                    if (returnPercent > 0) {
-                        color = '#f87171';
-                        sign = '+';
-                    } else if (returnPercent < 0) {
-                        color = '#34d399';
-                    }
-                    document.getElementById(`return-${stockId}`).innerHTML = 
-                        `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
+                    let color = '#e2e8f0', sign = '';
+                    if (returnPercent > 0) { color = '#f87171'; sign = '+'; }
+                    else if (returnPercent < 0) { color = '#34d399'; }
+                    document.getElementById(`return-${stockId}`).innerHTML = `<span style="color: ${color}; font-weight: 700;">${sign}${returnPercent.toFixed(2)}%</span>`;
                 } else {
                     document.getElementById(`return-${stockId}`).innerText = '--';
                 }
             }
             
-            const viewElements = row.querySelectorAll('.view-mode');
-            const editElements = row.querySelectorAll('.edit-mode');
-            const editBtn = row.querySelector('.edit-btn');
-            const saveBtn = row.querySelector('.save-btn');
-            
-            viewElements.forEach(el => el.style.display = 'inline-block');
-            editElements.forEach(el => el.style.display = 'none');
-            
-            editBtn.style.display = 'inline-block';
-            saveBtn.style.display = 'none';
+            row.querySelectorAll('.view-mode').forEach(el => el.style.display = 'inline-block');
+            row.querySelectorAll('.edit-mode').forEach(el => el.style.display = 'none');
+            row.querySelector('.edit-btn').style.display = 'inline-block';
+            row.querySelector('.save-btn').style.display = 'none';
         } else {
             alert("更新失敗: " + (data.error || "未知錯誤"));
         }
@@ -890,21 +971,13 @@ async function saveFavoriteRow(stockId) {
 }
 
 async function deleteFavoriteRow(stockId) {
-    if (!confirm(`確定要將股票 ${stockId} 從自選清單中刪除嗎？`)) {
-        return;
-    }
-    
+    if (!confirm(`確定要將股票 ${stockId} 從自選清單中刪除嗎？`)) return;
     try {
-        const res = await fetch(`http://localhost:8080/api/favorites/${stockId}`, {
-            method: 'DELETE'
-        });
+        const res = await fetch(`http://localhost:8080/api/favorites/${stockId}`, { method: 'DELETE' });
         if (!res.ok) throw new Error("刪除失敗");
         const data = await res.json();
-        
         if (data.success) {
-            if (stockId === currentStockCode) {
-                updateFavoriteIcon(false);
-            }
+            if (stockId === currentStockCode) updateFavoriteIcon(false);
             loadWatchlist();
         } else {
             alert("刪除失敗: " + (data.error || "未知錯誤"));
@@ -916,7 +989,6 @@ async function deleteFavoriteRow(stockId) {
 }
 
 async function fetchLiveTrendingStocks() {
-    // 1. 先顯示載入中提示
     const setListLoading = (id) => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = `<li style="color: #64748b; text-align: center; cursor: default; background: transparent;">即時爬取分析中...</li>`;
@@ -928,22 +1000,16 @@ async function fetchLiveTrendingStocks() {
     setListLoading('tpexPriceList');
 
     try {
-        // 💡 向 Python gemini.py (Port 5000) 請求熱門股票數據
         const res = await fetch(`http://127.0.0.1:5000/api/market/trending_stocks?_t=${new Date().getTime()}`);
         if (!res.ok) throw new Error("無法連接熱門股票服務");
-        
         const data = await res.json();
         
         if (data.success) {
-            // 渲染上市 (TWSE)
             renderTrendingList('twseVolumeList', data.twse.volume, '張');
             renderTrendingList('twsePriceList', data.twse.price, '元');
-            
-            // 渲染上櫃 (TPEx)
             renderTrendingList('tpexVolumeList', data.tpex.volume, '張');
             renderTrendingList('tpexPriceList', data.tpex.price, '元');
 
-            // 💡 執行排行第一名個股自動即時預測流程
             await runTopOnePredictions(data);
         } else {
             throw new Error(data.error || "抓取失敗");
@@ -961,7 +1027,6 @@ async function fetchLiveTrendingStocks() {
     }
 }
 
-// 動態渲染 HTML 清單的輔助函式
 function renderTrendingList(elementId, stockList, unit) {
     const listEl = document.getElementById(elementId);
     if (!listEl) return;
@@ -972,14 +1037,8 @@ function renderTrendingList(elementId, stockList, unit) {
     }
 
     listEl.innerHTML = stockList.map((stock, index) => {
-        const valDisplay = unit === '張' 
-            ? `${stock.volume.toLocaleString()} 張` 
-            : `$${stock.price.toLocaleString()}`;
-
-        // 💡 第一名時加上預測結果容器的 Placeholder
-        const predPlaceholder = index === 0
-            ? `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>`
-            : '';
+        const valDisplay = unit === '張' ? `${stock.volume.toLocaleString()} 張` : `$${stock.price.toLocaleString()}`;
+        const predPlaceholder = index === 0 ? `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>` : '';
 
         return `
             <li onclick="analyzeFromTrending('${stock.code}')">
@@ -998,102 +1057,61 @@ function renderTrendingList(elementId, stockList, unit) {
     }).join('');
 }
 
-// 💡 執行排行第一名個股自動即時預測流程
 async function runTopOnePredictions(data) {
     const topStocks = [];
-    
-    // 收集四個清單的第一名股票代碼與名稱
-    if (data.twse.volume && data.twse.volume.length > 0) {
-        topStocks.push({ code: data.twse.volume[0].code, name: data.twse.volume[0].name, listId: 'twseVolumeList' });
-    }
-    if (data.twse.price && data.twse.price.length > 0) {
-        topStocks.push({ code: data.twse.price[0].code, name: data.twse.price[0].name, listId: 'twsePriceList' });
-    }
-    if (data.tpex.volume && data.tpex.volume.length > 0) {
-        topStocks.push({ code: data.tpex.volume[0].code, name: data.tpex.volume[0].name, listId: 'tpexVolumeList' });
-    }
-    if (data.tpex.price && data.tpex.price.length > 0) {
-        topStocks.push({ code: data.tpex.price[0].code, name: data.tpex.price[0].name, listId: 'tpexPriceList' });
-    }
+    if (data.twse.volume && data.twse.volume.length > 0) topStocks.push({ code: data.twse.volume[0].code, name: data.twse.volume[0].name, listId: 'twseVolumeList' });
+    if (data.twse.price && data.twse.price.length > 0) topStocks.push({ code: data.twse.price[0].code, name: data.twse.price[0].name, listId: 'twsePriceList' });
+    if (data.tpex.volume && data.tpex.volume.length > 0) topStocks.push({ code: data.tpex.volume[0].code, name: data.tpex.volume[0].name, listId: 'tpexVolumeList' });
+    if (data.tpex.price && data.tpex.price.length > 0) topStocks.push({ code: data.tpex.price[0].code, name: data.tpex.price[0].name, listId: 'tpexPriceList' });
 
     if (topStocks.length === 0) return;
 
-    // 顯示防禦性鎖定畫面遮罩
     const overlay = document.getElementById('aiAnalysisOverlay');
     if (overlay) overlay.style.display = 'flex';
 
     try {
-        // 去重股票代碼，以避免重複預測同檔股票
         const uniqueCodes = [...new Set(topStocks.map(s => s.code))];
         const predictionResults = {};
 
-        // 並行請求所有的預測數據 (由 Flask API 判斷快取或執行即時計算)
         await Promise.all(uniqueCodes.map(async (code) => {
             const stockInfo = topStocks.find(s => s.code === code);
             try {
                 const res = await fetch(`http://127.0.0.1:5000/api/market/get_or_run_prediction?code=${code}&name=${encodeURIComponent(stockInfo.name)}&_t=${new Date().getTime()}`);
                 if (!res.ok) throw new Error("預測 API 錯誤");
                 const predData = await res.json();
-                if (predData.success) {
-                    predictionResults[code] = predData;
-                }
+                if (predData.success) predictionResults[code] = predData;
             } catch (err) {
                 console.error(`無法獲取股票 ${code} 的自動預測:`, err);
             }
         }));
 
-        // 更新前端對應看板的第一名 HTML 標籤
         topStocks.forEach(stock => {
             const pred = predictionResults[stock.code];
             const badgeEl = document.getElementById(`pred-${stock.listId}-top1`);
             if (badgeEl && pred) {
-                // 決定交易訊號樣式與文字
-                let signalText = "中立";
-                let signalClass = "top-pred-hold";
-                
-                if (pred.trade_signal === "STRONG_BUY") {
-                    signalText = "強買";
-                    signalClass = "top-pred-strong-buy";
-                } else if (pred.trade_signal === "BUY") {
-                    signalText = "偏多";
-                    signalClass = "top-pred-buy";
-                } else if (pred.trade_signal === "HOLD") {
-                    signalText = "中立";
-                    signalClass = "top-pred-hold";
-                } else if (pred.trade_signal === "SELL") {
-                    signalText = "偏空";
-                    signalClass = "top-pred-sell";
-                } else if (pred.trade_signal === "STRONG_SELL") {
-                    signalText = "強賣";
-                    signalClass = "top-pred-strong-sell";
-                }
+                let signalText = "中立", signalClass = "top-pred-hold";
+                if (pred.trade_signal === "STRONG_BUY") { signalText = "強買"; signalClass = "top-pred-strong-buy"; }
+                else if (pred.trade_signal === "BUY") { signalText = "偏多"; signalClass = "top-pred-buy"; }
+                else if (pred.trade_signal === "HOLD") { signalText = "中立"; signalClass = "top-pred-hold"; }
+                else if (pred.trade_signal === "SELL") { signalText = "偏空"; signalClass = "top-pred-sell"; }
+                else if (pred.trade_signal === "STRONG_SELL") { signalText = "強賣"; signalClass = "top-pred-strong-sell"; }
 
                 badgeEl.innerText = `明日 ${signalText} (${pred.up_probability.toFixed(1)}%)`;
                 badgeEl.className = `top-pred-badge ${signalClass}`;
                 badgeEl.style.display = 'inline-block';
-                badgeEl.title = pred.is_sentiment_fused 
-                    ? "此預測已融合 BERT 輿情分析與技術面指標" 
-                    : "此預測為純技術面量化指標分析";
             }
         });
     } catch (e) {
         console.error("執行 Top 1 熱門預測流程失敗:", e);
     } finally {
-        // 關閉畫面鎖定遮罩
         if (overlay) overlay.style.display = 'none';
     }
 }
 
-/**
- * ============================================================================
- * 💡 熱門股票純前端跳轉與分析邏輯
- * ============================================================================
- */
 function analyzeFromTrending(code) {
     showDashboardView();
     document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
     document.getElementById('navMarketOverview').classList.add('active');
-    
     document.getElementById('stockSearch').value = code;
     fetchStockData(code);
 }
