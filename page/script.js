@@ -10,6 +10,7 @@ let isSearching = false;
 let rawStockData = null;
 let currentMonths = 6;        // 預設 6 個月
 let currentInterval = 'D';    // 預設 日K
+let lastPredictionResults = null;
 
 if (typeof Chart !== 'undefined') {
     const financialPlugin = window['chartjs-chart-financial'];
@@ -762,7 +763,7 @@ async function loadWatchlist() {
 
 async function fetchAndRenderWatchlistPrice(stockId, averageCost) {
     try {
-        const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${stockId}&_t=${new Date().getTime()}`);
+        const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${stockId}&skip_predict=true&_t=${new Date().getTime()}`);
         if (!response.ok) throw new Error("無法取得股價");
         const data = await response.json();
         
@@ -988,16 +989,18 @@ async function deleteFavoriteRow(stockId) {
     }
 }
 
-async function fetchLiveTrendingStocks() {
+async function fetchLiveTrendingStocks(autoRunPrediction = true) {
     const setListLoading = (id) => {
         const el = document.getElementById(id);
         if (el) el.innerHTML = `<li style="color: #64748b; text-align: center; cursor: default; background: transparent;">即時爬取分析中...</li>`;
     };
     
-    setListLoading('twseVolumeList');
-    setListLoading('twsePriceList');
-    setListLoading('tpexVolumeList');
-    setListLoading('tpexPriceList');
+    if (autoRunPrediction) {
+        setListLoading('twseVolumeList');
+        setListLoading('twsePriceList');
+        setListLoading('tpexVolumeList');
+        setListLoading('tpexPriceList');
+    }
 
     try {
         const res = await fetch(`http://127.0.0.1:5000/api/market/trending_stocks?_t=${new Date().getTime()}`);
@@ -1010,7 +1013,9 @@ async function fetchLiveTrendingStocks() {
             renderTrendingList('tpexVolumeList', data.tpex.volume, '張');
             renderTrendingList('tpexPriceList', data.tpex.price, '元');
 
-            await runTopOnePredictions(data);
+            if (autoRunPrediction) {
+                await runTopOnePredictions(data);
+            }
         } else {
             throw new Error(data.error || "抓取失敗");
         }
@@ -1038,7 +1043,22 @@ function renderTrendingList(elementId, stockList, unit) {
 
     listEl.innerHTML = stockList.map((stock, index) => {
         const valDisplay = unit === '張' ? `${stock.volume.toLocaleString()} 張` : `$${stock.price.toLocaleString()}`;
-        const predPlaceholder = index === 0 ? `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>` : '';
+        let predPlaceholder = '';
+        if (index === 0) {
+            const pred = lastPredictionResults ? lastPredictionResults[stock.code] : null;
+            if (pred) {
+                let signalText = "中立", signalClass = "top-pred-hold";
+                if (pred.trade_signal === "STRONG_BUY") { signalText = "強買"; signalClass = "top-pred-strong-buy"; }
+                else if (pred.trade_signal === "BUY") { signalText = "偏多"; signalClass = "top-pred-buy"; }
+                else if (pred.trade_signal === "HOLD") { signalText = "中立"; signalClass = "top-pred-hold"; }
+                else if (pred.trade_signal === "SELL") { signalText = "偏空"; signalClass = "top-pred-sell"; }
+                else if (pred.trade_signal === "STRONG_SELL") { signalText = "強賣"; signalClass = "top-pred-strong-sell"; }
+
+                predPlaceholder = `<span class="top-pred-badge ${signalClass}" id="pred-${elementId}-top1">明日 ${signalText} (${pred.up_probability.toFixed(1)}%)</span>`;
+            } else {
+                predPlaceholder = `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>`;
+            }
+        }
 
         return `
             <li onclick="analyzeFromTrending('${stock.code}')">
@@ -1085,6 +1105,8 @@ async function runTopOnePredictions(data) {
             }
         }));
 
+        lastPredictionResults = predictionResults;
+
         topStocks.forEach(stock => {
             const pred = predictionResults[stock.code];
             const badgeEl = document.getElementById(`pred-${stock.listId}-top1`);
@@ -1105,6 +1127,7 @@ async function runTopOnePredictions(data) {
         console.error("執行 Top 1 熱門預測流程失敗:", e);
     } finally {
         if (overlay) overlay.style.display = 'none';
+        fetchLiveTrendingStocks(false);
     }
 }
 

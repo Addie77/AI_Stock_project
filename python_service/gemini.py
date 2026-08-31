@@ -149,21 +149,23 @@ def get_or_run_prediction():
 @app.route('/api/analyze', methods=['GET'])
 def analyze():
     code = request.args.get('code', '').strip().zfill(4)
+    skip_predict = request.args.get('skip_predict', 'false').lower() == 'true'
     
     # 💡 [即時預測快取處理]：若已在快取中，先觸發即時預測並更新快取
     if code in stock_cache:
-        try:
-            from ml_inference import predict_stock
-            stock_name = stock_cache[code].get('name', '未知個股')
-            predict_stock(code, stock_name=stock_name)
-            java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
-            if java_res.status_code == 200:
-                java_data = java_res.json()
-                stock_cache[code]['sentiment_score'] = java_data.get("averageSentimentScore", 0)
-                stock_cache[code]['ai_prediction'] = java_data.get("aiPrediction", None)
-                print(f"⚡ 已完成快取內 {code} 的即時預測與更新。")
-        except Exception as pe:
-            print(f"⚠️ 更新快取預測失敗: {pe}")
+        if not skip_predict:
+            try:
+                from ml_inference import predict_stock
+                stock_name = stock_cache[code].get('name', '未知個股')
+                predict_stock(code, stock_name=stock_name)
+                java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
+                if java_res.status_code == 200:
+                    java_data = java_res.json()
+                    stock_cache[code]['sentiment_score'] = java_data.get("averageSentimentScore", 0)
+                    stock_cache[code]['ai_prediction'] = java_data.get("aiPrediction", None)
+                    print(f"⚡ 已完成快取內 {code} 的即時預測與更新。")
+            except Exception as pe:
+                print(f"⚠️ 更新快取預測失敗: {pe}")
         return jsonify(stock_cache[code])
 
     try:
@@ -179,12 +181,13 @@ def analyze():
     dates = df_hist['日期'].tolist()      
     
     # 💡 [即時預測首次載入]：首次載入時，先觸發即時預測推理
-    try:
-        from ml_inference import predict_stock
-        predict_stock(code, stock_name=name)
-        print(f"⚡ 首次即時預測完成：已動態更新 {code} 的預測機率。")
-    except Exception as pe:
-        print(f"⚠️ 首次即時預測推理失敗: {pe}")
+    if not skip_predict:
+        try:
+            from ml_inference import predict_stock
+            predict_stock(code, stock_name=name)
+            print(f"⚡ 首次即時預測完成：已動態更新 {code} 的預測機率。")
+        except Exception as pe:
+            print(f"⚠️ 首次即時預測推理失敗: {pe}")
     
     # 原始的字串價格與成交量陣列
     raw_prices = df_hist['收盤價'].tolist() if '收盤價' in df_hist.columns else []
