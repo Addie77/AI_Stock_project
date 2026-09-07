@@ -26,6 +26,20 @@ if (typeof Chart !== 'undefined') {
             Chart.CandlestickElement
         );
     }
+
+    // 強制覆蓋全域預設：紅漲 (#ef4444) / 綠跌 (#22c55e)
+    if (Chart.defaults.elements && Chart.defaults.elements.candlestick) {
+        Chart.defaults.elements.candlestick.color = {
+            up: '#ef4444',
+            down: '#22c55e',
+            unchanged: '#94a3b8'
+        };
+        Chart.defaults.elements.candlestick.borderColor = {
+            up: '#ef4444',
+            down: '#22c55e',
+            unchanged: '#94a3b8'
+        };
+    }
 }
 
 /**
@@ -70,6 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchAiReport(currentStockCode);
     });
 
+    // 側邊欄切換：AI 報告
     document.getElementById('navAiReport').addEventListener('click', () => {
         showDashboardView();
         const aiSection = document.getElementById('aiReportSection');
@@ -80,6 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('navAiReport').classList.add('active');
     });
 
+    // 側邊欄切換：市場總覽
     document.getElementById('navMarketOverview').addEventListener('click', () => {
         showDashboardView();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -87,10 +103,16 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('navMarketOverview').classList.add('active');
     });
 
+    // 側邊欄切換：自選股 (隱藏市場總覽頂部資訊)
     document.getElementById('navWatchlist').addEventListener('click', () => {
         document.getElementById('mainDashboardViews').style.display = 'none';
         document.getElementById('trendingSection').style.display = 'none';
         document.getElementById('watchlistSection').style.display = 'block';
+
+        // 隱藏頂部「股票代碼 / 系統狀態 / 刷新按鈕」
+        const headerInfo = document.getElementById('headerInfo');
+        if (headerInfo) headerInfo.style.display = 'none';
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
@@ -101,10 +123,16 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // 側邊欄切換：熱門股票 (隱藏市場總覽頂部資訊)
     document.getElementById('navTrending').addEventListener('click', () => {
         document.getElementById('mainDashboardViews').style.display = 'none';
         document.getElementById('watchlistSection').style.display = 'none';
         document.getElementById('trendingSection').style.display = 'block';
+
+        // 隱藏頂部「股票代碼 / 系統狀態 / 刷新按鈕」
+        const headerInfo = document.getElementById('headerInfo');
+        if (headerInfo) headerInfo.style.display = 'none';
+
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         document.querySelectorAll('.nav-links li').forEach(li => li.classList.remove('active'));
@@ -192,10 +220,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 });
 
+/**
+ * 顯示市場總覽視圖，並還原頂部狀態欄
+ */
 function showDashboardView() {
     document.getElementById('mainDashboardViews').style.display = 'flex';
     document.getElementById('watchlistSection').style.display = 'none';
     document.getElementById('trendingSection').style.display = 'none';
+
+    // 重新顯示頂部狀態資訊
+    const headerInfo = document.getElementById('headerInfo');
+    if (headerInfo) headerInfo.style.display = 'flex';
 }
 
 function initDashboardState() {
@@ -597,14 +632,25 @@ function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [],
                     type: 'candlestick',
                     label: '股票 K 線',
                     data: candlestickData,
+                    // 全面配置各版本相容屬性（紅漲 #ef4444 / 綠跌 #22c55e）
                     color: {
-                        up: '#22c55e',
-                        down: '#ef4444',
+                        up: '#ef4444',
+                        down: '#22c55e',
                         unchanged: '#94a3b8'
                     },
                     borderColor: {
-                        up: '#22c55e',
-                        down: '#ef4444',
+                        up: '#ef4444',
+                        down: '#22c55e',
+                        unchanged: '#94a3b8'
+                    },
+                    backgroundColors: {
+                        up: '#ef4444',
+                        down: '#22c55e',
+                        unchanged: '#94a3b8'
+                    },
+                    borderColors: {
+                        up: '#ef4444',
+                        down: '#22c55e',
                         unchanged: '#94a3b8'
                     },
                     yAxisID: 'y',
@@ -670,7 +716,6 @@ function renderChart(dates = [], opens = [], highs = [], lows = [], prices = [],
                         color: '#94a3b8', 
                         maxTicksLimit: 10,
                         source: 'data',
-                        // 💡 關鍵修正：自訂 callback 強制統一日期格式為 MM/dd (月K則為 yyyy/MM)，消除 Chart.js 跨月自動換格式的現象
                         callback: function(val) {
                             const dt = luxon.DateTime.fromMillis(Number(val));
                             if (!dt.isValid) return '';
