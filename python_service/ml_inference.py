@@ -144,7 +144,8 @@ def get_sentiment_baseline_and_today(stock_id):
     sheet_mapping = {
         "2330": "台積電",
         "2317": "鴻海",
-        "2454": "聯發科"
+        "2454": "聯發科",
+        "2408": "南亞科"
     }
     
     sheet_name = sheet_mapping.get(stock_id)
