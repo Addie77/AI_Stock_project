@@ -419,24 +419,71 @@ def generate_ai():
         name = base_data["name"]
         current_price = base_data["current_price"]
         final_sentiment_score = base_data["sentiment_score"]
-        prices = base_data["history_prices"] 
+        prices = base_data["history_prices"]
     else:
         return jsonify({"error": "請先進行股票基本搜尋以載入數據來源"}), 400
+
+    # 💡 動態取得最新預測數據（優先向 Spring Boot 獲取最新狀態，以捕捉是否有情緒融合）
+    ai_prediction = base_data.get("ai_prediction")
+    try:
+        java_res = requests.get(f"http://localhost:8080/api/stocks/{code}", timeout=2)
+        if java_res.status_code == 200:
+            java_data = java_res.json()
+            if java_data.get("aiPrediction"):
+                ai_prediction = java_data.get("aiPrediction")
+    except Exception as e:
+        print(f"⚠️ 獲取最新預測失敗，將使用快取資料: {e}")
+
+    # 💡 判斷是否融合情緒特徵並組裝提示字資訊
+    signal_map = {
+        "STRONG_BUY": "強烈買進",
+        "BUY": "偏多操作",
+        "HOLD": "中立觀望",
+        "SELL": "偏空操作",
+        "STRONG_SELL": "強烈賣出"
+    }
+
+    if ai_prediction:
+        up_prob = float(ai_prediction.get("upProbability", 50.0))
+        raw_signal = ai_prediction.get("tradeSignal", "HOLD")
+        signal_cn = signal_map.get(raw_signal, raw_signal)
+        is_fused = ai_prediction.get("isSentimentFused", False)
+
+        if is_fused:
+            ml_context = (
+                f"【最新機器學習量化預測（已融合最新新聞情緒特徵）】\n"
+                f"- 模型類型：LightGBM 分類模型 ＋ 輿情動態修正門檻\n"
+                f"- 最新預測次日上漲機率：{up_prob:.1f}%\n"
+                f"- 建議交易訊號：【{signal_cn}】\n"
+                f"- 說明：此機率已綜合考量當前新聞利多/利空情緒進行動態加權，代表技術面與消息面融合後的最新預測。\n"
+            )
+        else:
+            ml_context = (
+                f"【最新機器學習量化預測（純技術面指標分析）】\n"
+                f"- 模型類型：LightGBM 分類模型\n"
+                f"- 最新預測次日上漲機率：{up_prob:.1f}%\n"
+                f"- 建議交易訊號：【{signal_cn}】\n"
+                f"- 說明：此機率完全由歷史價量、均線、RSI、KD 等技術指標特徵獨立推論得出。\n"
+            )
+    else:
+        ml_context = "【最新機器學習量化預測】：目前量化推論尚未完成，請以目前歷史技術指標進行分析。\n"
 
     prompt = (
         f"你是一名精通技術分析、形態學與市場心理學的資深台股首席分析師。\n"
         f"目前系統利用本地端 FinBERT 模型對 {name}({code}) 計算出的客觀市場情感分數為 {final_sentiment_score} 分（滿分 100）。\n"
-        f"最新真實收盤價為 {current_price} 元。過去一段時間的連續歷史價格序列為：{prices[-15:]}。\n\n"
+        f"最新真實收盤價為 {current_price} 元。過去一段時間的連續歷史價格序列為：{prices[-15:]}。\n"
+        f"{ml_context}\n"
         f"請針對該個股過去 6 個月的走勢特徵，撰寫一份極為詳盡、專業且充實的技術面分析報告。\n"
-        f"報告必須包含以下四大核心維度：\n"
+        f"報告必須包含以下核心維度：\n"
         f"1. 形態學解讀（如：箱型整理、頭肩底、多頭排列、或是高檔背離等突破/修正訊號）。\n"
         f"2. 情感分數結合：深入闡述 FinBERT 算出的 {final_sentiment_score} 分在量價結構上代表的散戶與法人心理拉鋸。\n"
-        f"3. 支撐與壓力位評估：根據最新價格 {current_price} 元，給出明確的短中長期支撐與壓力區間。\n"
-        f"4. 實戰操作策略：提供分批佈局、停損、停利點的具體建議。\n\n"
+        f"3. 量化模型共振解讀：結合上述提供的 LightGBM 模型預測機率與訊號，分析量化預測與當前技術形態是否一致或出現背離。\n"
+        f"4. 支撐與壓力位評估：根據最新價格 {current_price} 元，給出明確的短中長期支撐與壓力區間。\n"
+        f"5. 實戰操作策略：提供分批佈局、停損、停利點的具體建議。\n\n"
         f"【重要限制】\n"
         f"- 內容篇幅請儘量詳盡充實（分析總結至少 150 字，操作建議至少 150 字），展現專業投顧報告的深度。\n"
         f"- 請嚴格回傳標準 JSON 格式，不可以包含任何 Markdown 的 ```json 標籤或其餘雜訊文字，直接以花括號開頭與結尾：\n"
-        f'{{"analysis_summary":"此處填寫極為詳盡的技術形態與市場情緒深度分析總結（文長）", "advice":"此處填寫具體的實戰操作、資金配置、支撐壓力位與避險戰術策略建議（文長）"}}'
+        f'{{"analysis_summary":"此處填寫極為詳盡的技術形態、市場情緒與量化預測共振深度分析總結（文長）", "advice":"此處填寫具體的實戰操作、資金配置、支撐壓力位與避險戰術策略建議（文長）"}}'
     )
 
     try:
