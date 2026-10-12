@@ -77,7 +77,84 @@ header {
 }
 #stockSearch:focus { border-color: var(--accent); }
 
-#displayName { font-size: 24px; font-weight: bold; color: var(--accent); }
+.stock-title-container {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+#displayName { 
+    font-size: 24px; 
+    font-weight: bold; 
+    color: var(--accent); 
+    white-space: nowrap;
+}
+
+.stock-price-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(15, 23, 42, 0.7);
+    padding: 4px 12px;
+    border-radius: 12px;
+    border: 1px solid #334155;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(8px);
+    vertical-align: middle;
+}
+
+.stock-current-price {
+    font-size: 24px;
+    font-weight: 800;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    letter-spacing: -0.5px;
+    color: #f8fafc;
+    transition: color 0.2s ease;
+}
+
+.stock-change-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 700;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    transition: all 0.2s ease;
+}
+
+/* 台灣股市標準：紅漲 (#ef4444) / 綠跌 (#22c55e) */
+.stock-change-tag.up {
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.stock-change-tag.down {
+    color: #22c55e;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.35);
+}
+
+.stock-change-tag.flat {
+    color: #94a3b8;
+    background: rgba(148, 163, 184, 0.15);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+}
+
+.stock-current-price.up {
+    color: #ef4444;
+}
+
+.stock-current-price.down {
+    color: #22c55e;
+}
+
+.stock-current-price.flat {
+    color: #f8fafc;
+}
 
 .online { color: #34d399; font-weight: bold; }
 

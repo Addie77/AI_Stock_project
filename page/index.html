@@ -30,7 +30,17 @@
             <header>
                 <input type="text" placeholder="搜尋股票代碼..." id="stockSearch">
                 <div class="header-info" id="headerInfo">
-                    <div id="displayName">載入中...</div>
+                    <div class="stock-title-container">
+                        <div id="displayName">載入中...</div>
+                        <div id="stockPriceBadge" class="stock-price-display" style="display: none;">
+                            <span class="stock-current-price" id="stockCurrentPrice">--</span>
+                            <div class="stock-change-tag" id="stockChangeTag">
+                                <span id="stockChangeArrow">▲</span>
+                                <span id="stockChangeVal">--</span>
+                                <span id="stockChangePercent">(--%)</span>
+                            </div>
+                        </div>
+                    </div>
                     <div class="status">系統：<span class="online">ONLINE</span></div>
                     <button class="primary-btn live-refresh-btn" id="reloadPageBtn" title="重新整理當前股票">🔄 即時刷新</button>
                 </div>

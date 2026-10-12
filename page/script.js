@@ -218,6 +218,12 @@ document.addEventListener('DOMContentLoaded', () => {
             alert("操作失敗: " + e.message);
         }
     });
+
+    // 進入個股頁面時，支援 URL ?code= 參數，預設載入台積電 (2330)
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialCode = urlParams.get('code') || '2330';
+    document.getElementById('stockSearch').value = initialCode;
+    fetchStockData(initialCode);
 });
 
 /**
@@ -231,6 +237,82 @@ function showDashboardView() {
     // 重新顯示頂部狀態資訊
     const headerInfo = document.getElementById('headerInfo');
     if (headerInfo) headerInfo.style.display = 'flex';
+}
+
+/**
+ * ============================================================================
+ * 更新個股名稱附近的最新收盤價與漲跌幅資訊 (台灣股市標準：紅漲綠跌)
+ * ============================================================================
+ */
+function updateStockPriceHeader(data) {
+    const priceDisplay = document.getElementById('stockPriceBadge');
+    const priceEl = document.getElementById('stockCurrentPrice');
+    const tagEl = document.getElementById('stockChangeTag');
+    const arrowEl = document.getElementById('stockChangeArrow');
+    const changeValEl = document.getElementById('stockChangeVal');
+    const percentEl = document.getElementById('stockChangePercent');
+
+    if (!priceDisplay || !priceEl || !tagEl) return;
+
+    if (!data) {
+        priceDisplay.style.display = 'none';
+        return;
+    }
+
+    const prices = data.history_prices || [];
+    let currentPrice = data.current_price;
+    if ((currentPrice === undefined || currentPrice === null) && prices.length > 0) {
+        currentPrice = prices[prices.length - 1];
+    }
+
+    if (currentPrice === undefined || currentPrice === null || isNaN(Number(currentPrice))) {
+        priceDisplay.style.display = 'none';
+        return;
+    }
+
+    currentPrice = Number(currentPrice);
+
+    // 計算最新收盤價與前一日收盤價之漲跌
+    let priceDiff = 0;
+    let percentDiff = 0;
+
+    if (data.price_change !== undefined && data.change_percent !== undefined) {
+        priceDiff = Number(data.price_change);
+        percentDiff = Number(data.change_percent);
+    } else if (prices.length >= 2) {
+        const prevPrice = Number(prices[prices.length - 2]);
+        priceDiff = currentPrice - prevPrice;
+        percentDiff = prevPrice !== 0 ? (priceDiff / prevPrice) * 100 : 0;
+    }
+
+    // 格式化最新收盤價格 (保留兩位小數與千分位逗號)
+    priceEl.innerText = currentPrice.toLocaleString('zh-TW', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+
+    // 依漲跌著色 (台灣市場規範：漲為紅、跌為綠、平盤為灰)
+    if (priceDiff > 0.0001) {
+        priceEl.className = 'stock-current-price up';
+        tagEl.className = 'stock-change-tag up';
+        if (arrowEl) arrowEl.innerText = '▲';
+        if (changeValEl) changeValEl.innerText = `+${priceDiff.toFixed(2)}`;
+        if (percentEl) percentEl.innerText = `(+${percentDiff.toFixed(2)}%)`;
+    } else if (priceDiff < -0.0001) {
+        priceEl.className = 'stock-current-price down';
+        tagEl.className = 'stock-change-tag down';
+        if (arrowEl) arrowEl.innerText = '▼';
+        if (changeValEl) changeValEl.innerText = `${priceDiff.toFixed(2)}`;
+        if (percentEl) percentEl.innerText = `(${percentDiff.toFixed(2)}%)`;
+    } else {
+        priceEl.className = 'stock-current-price flat';
+        tagEl.className = 'stock-change-tag flat';
+        if (arrowEl) arrowEl.innerText = '─';
+        if (changeValEl) changeValEl.innerText = '0.00';
+        if (percentEl) percentEl.innerText = '(0.00%)';
+    }
+
+    priceDisplay.style.display = 'inline-flex';
 }
 
 function initDashboardState() {
@@ -263,6 +345,7 @@ function initDashboardState() {
         stockChart = null;
     }
     rawStockData = null;
+    updateStockPriceHeader(null);
 }
 
 function updatePredictionUI(pred) {
@@ -346,6 +429,8 @@ async function fetchStockData(code) {
     aiAdvice.innerHTML = '';
 
     document.getElementById('displayName').innerText = `🔍 正在擷取 ${code} 數據與進行即時預測中...`;
+    const priceDisplay = document.getElementById('stockPriceBadge');
+    if (priceDisplay) priceDisplay.style.display = 'none';
 
     try {
         const response = await fetch(`http://127.0.0.1:5000/api/analyze?code=${code}&_t=${new Date().getTime()}`);
@@ -356,6 +441,7 @@ async function fetchStockData(code) {
         rawStockData = data;
 
         document.getElementById('displayName').innerText = `${data.name} (${code})`;
+        updateStockPriceHeader(data);
         document.getElementById('sentFill').style.width = data.sentiment_score + '%'; 
         document.getElementById('sentVal').innerText = data.sentiment_score + " / 100";
         
@@ -1034,6 +1120,8 @@ async function deleteFavoriteRow(stockId) {
     }
 }
 
+let cachedTrendingData = null;
+
 async function fetchLiveTrendingStocks(autoRunPrediction = true) {
     const setListLoading = (id) => {
         const el = document.getElementById(id);
@@ -1053,6 +1141,7 @@ async function fetchLiveTrendingStocks(autoRunPrediction = true) {
         const data = await res.json();
         
         if (data.success) {
+            cachedTrendingData = data;
             renderTrendingList('twseVolumeList', data.twse.volume, '張');
             renderTrendingList('twsePriceList', data.twse.price, '元');
             renderTrendingList('tpexVolumeList', data.tpex.volume, '張');
@@ -1090,8 +1179,9 @@ function renderTrendingList(elementId, stockList, unit) {
         const valDisplay = unit === '張' ? `${stock.volume.toLocaleString()} 張` : `$${stock.price.toLocaleString()}`;
         let predPlaceholder = '';
         if (index === 0) {
-            const pred = lastPredictionResults ? lastPredictionResults[stock.code] : null;
-            if (pred) {
+            const stockKey = String(stock.code).trim();
+            const pred = lastPredictionResults ? (lastPredictionResults[stockKey] || lastPredictionResults[stock.code]) : null;
+            if (pred && pred.up_probability !== undefined && pred.up_probability !== null) {
                 let signalText = "中立", signalClass = "top-pred-hold";
                 if (pred.trade_signal === "STRONG_BUY") { signalText = "強買"; signalClass = "top-pred-strong-buy"; }
                 else if (pred.trade_signal === "BUY") { signalText = "偏多"; signalClass = "top-pred-buy"; }
@@ -1099,7 +1189,8 @@ function renderTrendingList(elementId, stockList, unit) {
                 else if (pred.trade_signal === "SELL") { signalText = "偏空"; signalClass = "top-pred-sell"; }
                 else if (pred.trade_signal === "STRONG_SELL") { signalText = "強賣"; signalClass = "top-pred-strong-sell"; }
 
-                predPlaceholder = `<span class="top-pred-badge ${signalClass}" id="pred-${elementId}-top1">明日 ${signalText} (${pred.up_probability.toFixed(1)}%)</span>`;
+                const probVal = !isNaN(parseFloat(pred.up_probability)) ? parseFloat(pred.up_probability).toFixed(1) : "0.0";
+                predPlaceholder = `<span class="top-pred-badge ${signalClass}" id="pred-${elementId}-top1">明日 ${signalText} (${probVal}%)</span>`;
             } else {
                 predPlaceholder = `<span class="top-pred-badge" id="pred-${elementId}-top1" style="display: none;"></span>`;
             }
@@ -1135,27 +1226,40 @@ async function runTopOnePredictions(data) {
     if (overlay) overlay.style.display = 'flex';
 
     try {
-        const uniqueCodes = [...new Set(topStocks.map(s => s.code))];
+        const uniqueCodes = [...new Set(topStocks.map(s => String(s.code).trim()))];
         const predictionResults = {};
 
         await Promise.all(uniqueCodes.map(async (code) => {
-            const stockInfo = topStocks.find(s => s.code === code);
+            const stockInfo = topStocks.find(s => String(s.code).trim() === code);
             try {
                 const res = await fetch(`http://127.0.0.1:5000/api/market/get_or_run_prediction?code=${code}&name=${encodeURIComponent(stockInfo.name)}&_t=${new Date().getTime()}`);
                 if (!res.ok) throw new Error("預測 API 錯誤");
                 const predData = await res.json();
-                if (predData.success) predictionResults[code] = predData;
+                if (predData && predData.success) {
+                    predictionResults[code] = predData;
+                    if (predData.code) predictionResults[String(predData.code).trim()] = predData;
+                }
             } catch (err) {
                 console.error(`無法獲取股票 ${code} 的自動預測:`, err);
             }
         }));
 
-        lastPredictionResults = predictionResults;
+        lastPredictionResults = Object.assign({}, lastPredictionResults || {}, predictionResults);
 
+        // 💡 核心關鍵：直接使用已爬取的現成榜單數據立即重新渲染清單，不需重新發起慢速爬蟲請求
+        if (data && data.twse && data.tpex) {
+            renderTrendingList('twseVolumeList', data.twse.volume, '張');
+            renderTrendingList('twsePriceList', data.twse.price, '元');
+            renderTrendingList('tpexVolumeList', data.tpex.volume, '張');
+            renderTrendingList('tpexPriceList', data.tpex.price, '元');
+        }
+
+        // 雙重防禦保險：針對 DOM 上已存在的 badge 元素直接補填
         topStocks.forEach(stock => {
-            const pred = predictionResults[stock.code];
+            const stockKey = String(stock.code).trim();
+            const pred = lastPredictionResults ? (lastPredictionResults[stockKey] || lastPredictionResults[stock.code]) : null;
             const badgeEl = document.getElementById(`pred-${stock.listId}-top1`);
-            if (badgeEl && pred) {
+            if (badgeEl && pred && pred.up_probability !== undefined) {
                 let signalText = "中立", signalClass = "top-pred-hold";
                 if (pred.trade_signal === "STRONG_BUY") { signalText = "強買"; signalClass = "top-pred-strong-buy"; }
                 else if (pred.trade_signal === "BUY") { signalText = "偏多"; signalClass = "top-pred-buy"; }
@@ -1163,7 +1267,8 @@ async function runTopOnePredictions(data) {
                 else if (pred.trade_signal === "SELL") { signalText = "偏空"; signalClass = "top-pred-sell"; }
                 else if (pred.trade_signal === "STRONG_SELL") { signalText = "強賣"; signalClass = "top-pred-strong-sell"; }
 
-                badgeEl.innerText = `明日 ${signalText} (${pred.up_probability.toFixed(1)}%)`;
+                const probVal = !isNaN(parseFloat(pred.up_probability)) ? parseFloat(pred.up_probability).toFixed(1) : "0.0";
+                badgeEl.innerText = `明日 ${signalText} (${probVal}%)`;
                 badgeEl.className = `top-pred-badge ${signalClass}`;
                 badgeEl.style.display = 'inline-block';
             }
@@ -1172,7 +1277,6 @@ async function runTopOnePredictions(data) {
         console.error("執行 Top 1 熱門預測流程失敗:", e);
     } finally {
         if (overlay) overlay.style.display = 'none';
-        fetchLiveTrendingStocks(false);
     }
 }
 

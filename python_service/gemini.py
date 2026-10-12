@@ -253,6 +253,9 @@ def analyze():
             volumes.append(0)
 
     current_price = prices[-1]           
+    prev_price = prices[-2] if len(prices) >= 2 else current_price
+    price_change = round(current_price - prev_price, 2)
+    change_percent = round((price_change / prev_price * 100), 2) if prev_price != 0 else 0.0
 
     real_score = 0
     ai_prediction = None
@@ -268,6 +271,9 @@ def analyze():
     result = {
         "name": name,
         "current_price": current_price,
+        "previous_close": prev_price,
+        "price_change": price_change,
+        "change_percent": change_percent,
         "history_dates": dates,     
         "history_prices": prices,
         "history_opens": opens,     
