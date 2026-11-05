@@ -219,11 +219,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // 進入個股頁面時，支援 URL ?code= 參數，預設載入台積電 (2330)
+    // 進入個股頁面時，僅在 URL 明確帶有 ?code= 參數時才自動載入，否則維持首頁待搜尋狀態
     const urlParams = new URLSearchParams(window.location.search);
-    const initialCode = urlParams.get('code') || '2330';
-    document.getElementById('stockSearch').value = initialCode;
-    fetchStockData(initialCode);
+    const initialCode = urlParams.get('code');
+    if (initialCode) {
+        document.getElementById('stockSearch').value = initialCode;
+        fetchStockData(initialCode);
+    }
 });
 
 /**
